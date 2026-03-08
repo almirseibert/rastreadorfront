@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copia os arquivos de dependências primeiro (deixa o deploy mais rápido)
 COPY web/package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copia todo o restante da sua pasta web modificada
 COPY web/ ./
