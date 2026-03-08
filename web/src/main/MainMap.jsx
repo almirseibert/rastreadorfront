@@ -62,7 +62,8 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
       {desktop && (
         <MapPadding
           start={
-            parseInt(theme.dimensions.drawerWidthDesktop, 10) + parseInt(theme.spacing(1.5), 10)
+            /* O 240px garante que os controles do mapa não fiquem escondidos pelo menu lateral */
+            240 + parseInt(theme.dimensions.drawerWidthDesktop, 10) + parseInt(theme.spacing(1.5), 10)
           }
         />
       )}

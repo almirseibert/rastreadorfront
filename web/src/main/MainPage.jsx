@@ -18,6 +18,22 @@ import { useAttributePreference } from '../common/util/preferences';
 const useStyles = makeStyles()((theme) => ({
   root: {
     height: '100%',
+    display: 'flex',
+  },
+  navSidebar: {
+    [theme.breakpoints.up('md')]: {
+      position: 'fixed',
+      left: 0,
+      top: 0,
+      width: '260px', // Nova coluna exclusiva para o menu lateral escuro
+      height: '100%',
+      zIndex: 10,
+      backgroundColor: '#20304a',
+      boxShadow: '2px 0 10px rgba(0,0,0,0.3)',
+    },
+    [theme.breakpoints.down('md')]: {
+      display: 'none', // Oculta no telemóvel para usar o rodapé
+    }
   },
   sidebar: {
     pointerEvents: 'none',
@@ -25,11 +41,11 @@ const useStyles = makeStyles()((theme) => ({
     flexDirection: 'column',
     [theme.breakpoints.up('md')]: {
       position: 'fixed',
-      left: 0,
+      left: '260px', // Afasta a lista de veículos 260px para a direita
       top: 0,
       height: '100%',
       width: theme.dimensions.drawerWidthDesktop,
-      margin: 0,
+      margin: 0, // Remove a margem flutuante antiga
       backgroundColor: theme.palette.background.default,
       borderRight: `1px solid ${theme.palette.divider}`,
       zIndex: 3,
@@ -48,15 +64,8 @@ const useStyles = makeStyles()((theme) => ({
   footer: {
     pointerEvents: 'auto',
     zIndex: 5,
-    backgroundColor: theme.palette.customColors?.sidebar || '#20304a',
-    '& .MuiBottomNavigation-root': {
-      backgroundColor: 'transparent',
-    },
-    '& .MuiBottomNavigationAction-root': {
-      color: theme.palette.customColors?.sidebarIcon || '#b0bec5',
-    },
-    '& .Mui-selected': {
-      color: theme.palette.customColors?.sidebarText || '#ffffff',
+    [theme.breakpoints.up('md')]: {
+      display: 'none', // Oculta o menu de rodapé no computador
     },
   },
   middle: {
@@ -127,6 +136,11 @@ const MainPage = () => {
   return (
     <div className={classes.root}>
       {desktop && (
+        <div className={classes.navSidebar}>
+          <BottomMenu />
+        </div>
+      )}
+      {desktop && (
         <MainMap
           filteredPositions={filteredPositions}
           selectedPosition={selectedPosition}
@@ -167,7 +181,7 @@ const MainPage = () => {
             <DeviceList devices={filteredDevices} />
           </Paper>
         </div>
-        {desktop && (
+        {!desktop && (
           <div className={classes.footer}>
             <BottomMenu />
           </div>
@@ -179,7 +193,7 @@ const MainPage = () => {
           deviceId={selectedDeviceId}
           position={selectedPosition}
           onClose={() => dispatch(devicesActions.selectId(null))}
-          desktopPadding={theme.dimensions.drawerWidthDesktop}
+          desktopPadding={desktop ? `calc(260px + ${theme.dimensions.drawerWidthDesktop})` : theme.dimensions.drawerWidthDesktop}
         />
       )}
     </div>
