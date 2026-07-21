@@ -18,7 +18,7 @@ MapboxDraw.constants.classes.CONTROL_BASE = 'maplibregl-ctrl';
 MapboxDraw.constants.classes.CONTROL_PREFIX = 'maplibregl-ctrl-';
 MapboxDraw.constants.classes.CONTROL_GROUP = 'maplibregl-ctrl-group';
 
-const MapGeofenceEdit = ({ selectedGeofenceId }) => {
+const MapGeofenceEdit = ({ selectedGeofenceId, onCreate }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -72,8 +72,15 @@ const MapGeofenceEdit = ({ selectedGeofenceId }) => {
   useEffect(() => {
     const listener = async (event) => {
       const feature = event.features[0];
-      const newItem = { name: t('sharedGeofence'), area: geometryToArea(feature.geometry) };
+      const area = geometryToArea(feature.geometry);
       draw.delete(feature.id);
+      // Com onCreate (GeofencesPage), o desenho abre o assistente de cerca + alerta;
+      // sem ele, mantém o comportamento antigo de salvar e ir para a edição.
+      if (onCreate) {
+        onCreate(area);
+        return;
+      }
+      const newItem = { name: t('sharedGeofence'), area };
       try {
         const response = await fetchOrThrow('/api/geofences', {
           method: 'POST',
@@ -89,7 +96,7 @@ const MapGeofenceEdit = ({ selectedGeofenceId }) => {
 
     map.on('draw.create', listener);
     return () => map.off('draw.create', listener);
-  }, [dispatch, navigate]);
+  }, [dispatch, navigate, onCreate]);
 
   useEffect(() => {
     const listener = async (event) => {
