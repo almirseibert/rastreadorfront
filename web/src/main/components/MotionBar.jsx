@@ -9,10 +9,10 @@ const useStyles = makeStyles()((theme) => ({
     backgroundColor: theme.palette.action.disabledBackground,
   },
   moving: {
-    backgroundColor: '#28a745',
+    backgroundColor: theme.palette.motion.moving,
   },
   stopped: {
-    backgroundColor: '#dc3545',
+    backgroundColor: theme.palette.motion.stopped,
   },
 }));
 

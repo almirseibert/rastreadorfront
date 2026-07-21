@@ -18,16 +18,24 @@ import {
   TableFooter,
   Link,
   Tooltip,
+  Avatar,
+  Chip,
+  Box,
+  useMediaQuery,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
+import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import RouteIcon from '@mui/icons-material/Route';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PendingIcon from '@mui/icons-material/Pending';
+import ShareLocationIcon from '@mui/icons-material/ShareLocation';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
 import { useTranslation } from './LocalizationProvider';
+import QuickCommands from './QuickCommands';
 import RemoveDialog from './RemoveDialog';
 import PositionValue from './PositionValue';
 import { useDeviceReadonly, useRestriction } from '../util/permissions';
@@ -57,6 +65,25 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing(1, 1, 0, 2),
+    gap: theme.spacing(1),
+  },
+  headerInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    minWidth: 0,
+  },
+  headerTitle: {
+    fontWeight: 'bold',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  statusChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    fontWeight: 'bold',
+    color: theme.palette.common.white,
   },
   content: {
     paddingTop: theme.spacing(1),
@@ -88,16 +115,23 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     pointerEvents: 'none',
     position: 'fixed',
     zIndex: 5,
-    left: '50%',
     [theme.breakpoints.up('md')]: {
       left: `calc(50% + ${desktopPadding} / 2)`,
       bottom: theme.spacing(3),
+      transform: 'translateX(-50%)',
     },
+    // Mobile: bottom sheet ancorado acima do menu inferior
     [theme.breakpoints.down('md')]: {
-      left: '50%',
-      bottom: `calc(${theme.spacing(3)} + ${theme.dimensions.bottomBarHeight}px)`,
+      left: 0,
+      right: 0,
+      bottom: `${theme.dimensions.bottomBarHeight}px`,
     },
-    transform: 'translateX(-50%)',
+  },
+  sheet: {
+    [theme.breakpoints.down('md')]: {
+      width: '100%',
+      borderRadius: '12px 12px 0 0',
+    },
   },
 }));
 
@@ -119,7 +153,9 @@ const StatusRow = ({ name, content }) => {
 };
 
 const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPadding = 0 }) => {
-  const { classes } = useStyles({ desktopPadding });
+  const { classes, cx } = useStyles({ desktopPadding });
+  const theme = useTheme();
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const t = useTranslation();
@@ -154,6 +190,21 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
     setRemoving(false);
   });
 
+  // Cor e rótulo de status estilo Ruhavik (mesma lógica do DeviceRow)
+  const moving = device?.status === 'online' && Boolean(position?.attributes?.motion);
+  let statusColor;
+  let statusLabel;
+  if (device?.status === 'online') {
+    statusColor = moving ? theme.palette.success.main : theme.palette.primary.main;
+    statusLabel = moving ? t('eventDeviceMoving') : t('deviceStatusOnline');
+  } else if (device?.status === 'offline') {
+    statusColor = theme.palette.error.main;
+    statusLabel = t('deviceStatusOffline');
+  } else {
+    statusColor = theme.palette.neutral.main;
+    statusLabel = t('deviceStatusUnknown');
+  }
+
   const handleGeofence = useCatchCallback(async () => {
     const newItem = {
       name: t('sharedGeofence'),
@@ -180,10 +231,11 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
           <Rnd
             default={{ x: 0, y: 0, width: 'auto', height: 'auto' }}
             enableResizing={false}
+            disableDragging={!desktop}
             dragHandleClassName="draggable-header"
-            style={{ position: 'relative' }}
+            style={{ position: 'relative', width: desktop ? undefined : '100%' }}
           >
-            <Card elevation={3} className={classes.card}>
+            <Card elevation={3} className={cx(classes.card, classes.sheet)}>
               {deviceImage ? (
                 <CardMedia
                   className={`${classes.media} draggable-header`}
@@ -195,9 +247,20 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
                 </CardMedia>
               ) : (
                 <div className={`${classes.header} draggable-header`}>
-                  <Typography variant="body2" color="textSecondary">
-                    {device.name}
-                  </Typography>
+                  <Box className={classes.headerInfo}>
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: statusColor }}>
+                      <LocalShippingIcon fontSize="small" />
+                    </Avatar>
+                    <Typography variant="body2" className={classes.headerTitle}>
+                      {device.name}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={statusLabel}
+                      className={classes.statusChip}
+                      sx={{ backgroundColor: statusColor }}
+                    />
+                  </Box>
                   <IconButton size="small" onClick={onClose} onTouchStart={onClose}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
@@ -241,6 +304,7 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
                   </Table>
                 </CardContent>
               )}
+              <QuickCommands deviceId={deviceId} disabled={disableActions} />
               <CardActions classes={{ root: classes.actions }} disableSpacing>
                 <Tooltip title={t('sharedExtra')}>
                   <IconButton
@@ -267,6 +331,17 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
                     <SendIcon />
                   </IconButton>
                 </Tooltip>
+                {!shareDisabled && !user.temporary && (
+                  <Tooltip title={t('deviceShare')}>
+                    <IconButton
+                      color="primary"
+                      onClick={() => navigate(`/settings/device/${deviceId}/share`)}
+                      disabled={disableActions}
+                    >
+                      <ShareLocationIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title={t('sharedEdit')}>
                   <IconButton
                     onClick={() => navigate(`/settings/device/${deviceId}`)}

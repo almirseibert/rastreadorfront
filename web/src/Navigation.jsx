@@ -16,6 +16,9 @@ import NetworkPage from './other/NetworkPage';
 import EventReportPage from './reports/EventReportPage';
 import GeofenceReportPage from './reports/GeofenceReportPage';
 import ReplayPage from './other/ReplayPage';
+import TripsPage from './other/TripsPage';
+import TimelinePage from './other/TimelinePage';
+import DashboardPage from './other/DashboardPage';
 import TripReportPage from './reports/TripReportPage';
 import StopReportPage from './reports/StopReportPage';
 import SummaryReportPage from './reports/SummaryReportPage';
@@ -123,6 +126,9 @@ const Navigation = () => {
         <Route path="network/:positionId" element={<NetworkPage />} />
         <Route path="event/:id" element={<EventPage />} />
         <Route path="replay" element={<ReplayPage />} />
+        <Route path="trips" element={<TripsPage />} />
+        <Route path="timeline" element={<TimelinePage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="geofences" element={<GeofencesPage />} />
         <Route path="emulator" element={<EmulatorPage />} />
 

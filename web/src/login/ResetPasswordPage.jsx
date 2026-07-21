@@ -25,7 +25,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   loginDivider: {
     marginBottom: theme.spacing(1),
-    color: '#4b75a4',
+    color: theme.palette.primary.main,
     fontSize: '1.2rem',
     width: '100%',
   },
@@ -37,19 +37,6 @@ const useStyles = makeStyles()((theme) => ({
       maxHeight: '60px',
     }
   },
-  actionButton: {
-    backgroundColor: '#ffffff',
-    color: '#000000',
-    border: '1px solid #ccc',
-    boxShadow: 'none',
-    width: '150px',
-    margin: '0 auto',
-    borderRadius: '25px',
-    '&:hover': {
-      backgroundColor: '#6890ed',
-      boxShadow: 'none',
-    }
-  },
   footerContainer: {
     display: 'flex',
     flexDirection: 'column',
@@ -58,7 +45,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   copyright: {
     fontSize: '0.65rem',
-    color: '#888',
+    color: theme.palette.text.secondary,
     marginTop: theme.spacing(1),
   },
 }));
@@ -117,12 +104,6 @@ const ResetPasswordPage = () => {
             value={email}
             autoComplete="email"
             onChange={(event) => setEmail(event.target.value)}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: '#000000',
-                borderRadius: '25px',
-              }
-            }}
           />
         ) : (
           <TextField
@@ -133,17 +114,12 @@ const ResetPasswordPage = () => {
             type="password"
             autoComplete="current-password"
             onChange={(event) => setPassword(event.target.value)}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: '#000000',
-                borderRadius: '25px',
-              }
-            }}
           />
         )}
         <Button
-          variant="outlined"
-          className={classes.actionButton}
+          variant="contained"
+          color="primary"
+          fullWidth
           type="submit"
           onClick={handleSubmit}
           disabled={!/(.+)@(.+)\.(.{2,})/.test(email) && !password}

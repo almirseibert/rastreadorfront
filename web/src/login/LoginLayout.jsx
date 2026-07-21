@@ -8,7 +8,7 @@ const useStyles = makeStyles()((theme) => ({
     height: '100vh',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff', // Fundo cinza claro idêntico ao SigaSul
+    backgroundColor: theme.palette.background.default,
   },
   paper: {
     display: 'flex',
@@ -16,8 +16,7 @@ const useStyles = makeStyles()((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing(4, 5),
-    boxShadow: '0px 4px 20px rgba(95, 174, 226, 0.9)', // Sombra super suave
-    borderRadius: '8px',
+    borderRadius: '12px',
     width: '100%',
     maxWidth: '400px', // Limita a largura do cartão para ficar elegante
   },
@@ -31,7 +30,7 @@ const LoginLayout = ({ children }) => {
 
   return (
     <main className={classes.root}>
-      <Paper className={classes.paper} elevation={0}>
+      <Paper className={classes.paper} elevation={4}>
         <form className={classes.form}>{children}</form>
       </Paper>
     </main>

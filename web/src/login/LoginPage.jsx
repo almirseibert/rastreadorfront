@@ -55,7 +55,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   loginDivider: {
     marginBottom: theme.spacing(1),
-    color: '#4b75a4', // Cor azul do texto "Login"
+    color: theme.palette.primary.main,
     fontSize: '1.2rem',
   },
   topLogo: {
@@ -66,19 +66,6 @@ const useStyles = makeStyles()((theme) => ({
       maxHeight: '60px', // Limita a altura para ficar elegante
     }
   },
-  acessarButton: {
-    backgroundColor: '#ffffff',
-    color: '#000000',
-    border: '1px solid #ccc',
-    boxShadow: 'none',
-    width: '120px',
-    margin: '0 auto', // Centraliza o botão
-    borderRadius: '25px', // Arredonda o botão para combinar com os campos
-    '&:hover': {  
-      backgroundColor: '#6890ed',
-      boxShadow: 'none',
-    }
-  },
   footerContainer: {
     display: 'flex',
     flexDirection: 'column',
@@ -87,7 +74,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   copyright: {
     fontSize: '0.65rem',
-    color: '#888',
+    color: theme.palette.text.secondary,
     marginTop: theme.spacing(1),
   },
   extraContainer: {
@@ -214,19 +201,9 @@ const LoginPage = () => {
         )}
         {languageEnabled && (
           <FormControl>
-            <Select value={language} onChange={(e) => setLocalLanguage(e.target.value)} sx={{ 
-    backgroundColor: '#c0bebe', // Cor de fundo da caixa
-    color: '#000000',           // Cor do texto
-    borderRadius: '25px',       // Borda arredondada
-    height: '36px',             // Altura do botão
-    fontSize: '0.85rem',        // Tamanho da fonte
-    boxShadow: '0px 2px 4px rgba(127, 216, 241, 0.45)', // Sombreado leve
-    '& .MuiOutlinedInput-notchedOutline': {
-      border: 'none'            // Remove a borda padrão feia do MUI
-    },
-    '& .MuiSvgIcon-root': {
-      color: '#000000'          // Cor da setinha para baixo
-    }
+            <Select value={language} onChange={(e) => setLocalLanguage(e.target.value)} sx={{
+    height: '36px',
+    fontSize: '0.85rem',
   }}>
               {languageList.map((it) => (
                 <MenuItem key={it.code} value={it.code}>
@@ -259,12 +236,6 @@ const LoginPage = () => {
               autoComplete="email"
               autoFocus={!email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#000000',
-                  borderRadius: '25px', // Campos mais arredondados
-                }
-              }}
             />
             <TextField
               required
@@ -276,12 +247,6 @@ const LoginPage = () => {
               autoComplete="current-password"
               autoFocus={!!email}
               onChange={(e) => setPassword(e.target.value)}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#000000',
-                  borderRadius: '25px', // Campos mais arredondados
-                }
-              }}
               slotProps={{
                 input: {
                   endAdornment: (
@@ -313,11 +278,12 @@ const LoginPage = () => {
             <Button
               onClick={handlePasswordLogin}
               type="submit"
-              variant="outlined"
-              className={classes.acessarButton}
+              variant="contained"
+              color="primary"
+              fullWidth
               disabled={!email || !password || (codeEnabled && !code)}
             >
-              Acessar
+              {t('loginLogin')}
             </Button>
           </>
         )}

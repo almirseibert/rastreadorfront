@@ -18,6 +18,7 @@ import {
   ListItemButton,
   ListItemText,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { useTheme } from '@mui/material/styles';
@@ -34,7 +35,13 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     gap: theme.spacing(1),
     padding: theme.spacing(1),
-    backgroundColor: theme.palette.customColors?.header || '#ffffff',
+    backgroundColor: theme.palette.background.paper,
+  },
+  statusChips: {
+    display: 'flex',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(0, 1, 1, 1),
+    backgroundColor: theme.palette.background.paper,
   },
   filterPanel: {
     display: 'flex',
@@ -76,7 +83,18 @@ const MainToolbar = ({
   const deviceStatusCount = (status) =>
     Object.values(devices).filter((d) => d.status === status).length;
 
+  const toggleStatus = (status) => {
+    if (status === null) {
+      setFilter({ ...filter, statuses: [] });
+    } else if (filter.statuses.length === 1 && filter.statuses[0] === status) {
+      setFilter({ ...filter, statuses: [] });
+    } else {
+      setFilter({ ...filter, statuses: [status] });
+    }
+  };
+
   return (
+    <>
     <Toolbar ref={toolbarRef} className={classes.toolbar}>
       <IconButton edge="start" onClick={() => setDevicesOpen(!devicesOpen)}>
         {devicesOpen ? <MapIcon /> : <DnsIcon />}
@@ -205,6 +223,30 @@ const MainToolbar = ({
         </Tooltip>
       </IconButton>
     </Toolbar>
+    <div className={classes.statusChips}>
+      <Chip
+        size="small"
+        label={`${t('notificationAlways')} (${Object.keys(devices).length})`}
+        color={!filter.statuses.length ? 'primary' : 'default'}
+        variant={!filter.statuses.length ? 'filled' : 'outlined'}
+        onClick={() => toggleStatus(null)}
+      />
+      <Chip
+        size="small"
+        label={`${t('deviceStatusOnline')} (${deviceStatusCount('online')})`}
+        color={filter.statuses.includes('online') ? 'success' : 'default'}
+        variant={filter.statuses.includes('online') ? 'filled' : 'outlined'}
+        onClick={() => toggleStatus('online')}
+      />
+      <Chip
+        size="small"
+        label={`${t('deviceStatusOffline')} (${deviceStatusCount('offline')})`}
+        color={filter.statuses.includes('offline') ? 'error' : 'default'}
+        variant={filter.statuses.includes('offline') ? 'filled' : 'outlined'}
+        onClick={() => toggleStatus('offline')}
+      />
+    </div>
+    </>
   );
 };
 

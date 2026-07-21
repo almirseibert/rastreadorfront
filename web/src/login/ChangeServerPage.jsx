@@ -50,7 +50,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   loginDivider: {
     marginBottom: theme.spacing(1),
-    color: '#4b75a4',
+    color: theme.palette.primary.main,
     fontSize: '1.2rem',
     width: '100%',
   },
@@ -70,18 +70,8 @@ const useStyles = makeStyles()((theme) => ({
     gap: theme.spacing(1),
   },
   actionButton: {
-    backgroundColor: '#ffffff',
-    color: '#000000',
-    border: '1px solid #ccc',
-    boxShadow: 'none',
-    borderRadius: '25px',
-    padding: '6px 16px',
     flex: 1,
     whiteSpace: 'nowrap',
-    '&:hover': {
-      backgroundColor: '#6890ed',
-      boxShadow: 'none',
-    }
   },
   footerContainer: {
     display: 'flex',
@@ -91,7 +81,7 @@ const useStyles = makeStyles()((theme) => ({
   },
   copyright: {
     fontSize: '0.65rem',
-    color: '#888',
+    color: theme.palette.text.secondary,
     marginTop: theme.spacing(1),
   },
   scannerVideo: {
@@ -168,16 +158,10 @@ const ChangeServerPage = () => {
             freeSolo
             options={officialServers}
             renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label={t('settingsServer')} 
-                error={invalid} 
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#000000',
-                    borderRadius: '25px',
-                  }
-                }}
+              <TextField
+                {...params}
+                label={t('settingsServer')}
+                error={invalid}
               />
             )}
             value={currentServer}
@@ -202,7 +186,8 @@ const ChangeServerPage = () => {
               </Button>
             )}
             <Button
-              variant="outlined"
+              variant="contained"
+              color="primary"
               className={classes.actionButton}
               onClick={() =>
                 inputValue && validateUrl(inputValue) ? handleSubmit(inputValue) : setInvalid(true)

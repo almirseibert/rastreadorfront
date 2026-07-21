@@ -1,0 +1,13 @@
+node_modules/
+web/build/
+web/coverage/
+*.log
+.env.local
+.env.*.local
+.DS_Store
+
+# Configuração local com segredos (use variáveis de ambiente no deploy)
+traccar.local.xml
+
+# Config local do Claude Code (permissões específicas da máquina)
+.claude/settings.local.json

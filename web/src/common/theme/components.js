@@ -7,8 +7,8 @@ export default {
   MuiOutlinedInput: {
     styleOverrides: {
       root: ({ theme }) => ({
-        backgroundColor: theme.palette.background.default,
-        borderRadius: '4px', // Borda mais reta/quadrada imitando SigaSul
+        backgroundColor: theme.palette.background.paper,
+        borderRadius: '8px',
       }),
       input: {
         padding: '8px 12px', // Caixas de texto mais compactas
@@ -18,7 +18,7 @@ export default {
   MuiButton: {
     styleOverrides: {
       root: {
-        borderRadius: '4px', // Botões flat e retos
+        borderRadius: '8px',
         textTransform: 'none', // Remove letras 100% maiúsculas
         fontWeight: 'bold',
       },

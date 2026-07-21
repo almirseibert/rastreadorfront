@@ -1,12 +1,12 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 import {
-  IconButton,
   Tooltip,
   ListItemButton,
   Typography,
   Box,
-  Switch,
+  Avatar,
+  Chip,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -26,8 +26,21 @@ import DriverValue from '../common/components/DriverValue';
 dayjs.extend(relativeTime);
 
 const useStyles = makeStyles()((theme) => ({
-  selected: {
-    backgroundColor: theme.palette.action.hover, // Fundo sutil ao selecionar, como no SigaSul
+  rowWrapper: {
+    padding: theme.spacing(0.5, 1),
+    height: '100%',
+  },
+  card: {
+    height: '100%',
+    padding: 0,
+    borderRadius: 8,
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
+    overflow: 'hidden',
+  },
+  cardSelected: {
+    border: `1px solid ${theme.palette.primary.main}`,
+    backgroundColor: theme.palette.action.selected,
   },
   container: {
     display: 'flex',
@@ -43,31 +56,26 @@ const useStyles = makeStyles()((theme) => ({
   },
   vehicleInfo: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: theme.spacing(1.5),
-  },
-  iconWrapper: {
-    backgroundColor: theme.palette.customColors?.primary || '#1976d2', // Fundo azul quadrado do SigaSul
-    color: '#ffffff',
-    borderRadius: '4px',
-    padding: '6px',
-    display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: theme.spacing(1.5),
+    minWidth: 0,
   },
   titleBlock: {
     display: 'flex',
     flexDirection: 'column',
+    minWidth: 0,
   },
   title: {
     fontWeight: 'bold',
-    color: theme.palette.customColors?.primary || '#1976d2',
+    color: theme.palette.text.primary,
     fontSize: '0.85rem',
     lineHeight: 1.2,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   subtitle: {
     fontSize: '0.75rem',
-    fontWeight: 'bold',
     color: theme.palette.text.secondary,
     lineHeight: 1.2,
     marginTop: '2px',
@@ -76,12 +84,12 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: 0,
+    gap: theme.spacing(0.5),
   },
-  switchSmall: {
-    transform: 'scale(0.7)',
-    marginRight: '-10px',
-    marginTop: '-5px',
+  statusChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    fontWeight: 'bold',
   },
   infoRow: {
     display: 'flex',
@@ -99,12 +107,12 @@ const useStyles = makeStyles()((theme) => ({
     fontWeight: 'bold',
     color: theme.palette.text.primary,
   },
-  success: { color: theme.palette.success.main || '#28a745' },
-  neutral: { color: theme.palette.neutral.main || '#6e6e6e' },
+  success: { color: theme.palette.success.main },
+  neutral: { color: theme.palette.neutral.main },
 }));
 
 const DeviceRow = ({ devices, index, style }) => {
-  const { classes } = useStyles();
+  const { classes, cx, theme } = useStyles();
   const dispatch = useDispatch();
   const t = useTranslation();
 
@@ -116,86 +124,110 @@ const DeviceRow = ({ devices, index, style }) => {
 
   const devicePrimary = useAttributePreference('devicePrimary', 'name');
 
-  // Lógicas SigaSul
   const speed = position ? (position.speed * 1.852).toFixed(0) : 0;
   const address = position?.address || '';
   const updateTime = item.lastUpdate ? dayjs(item.lastUpdate).format('DD/MM/YYYY HH:mm:ss') : t('deviceStatusUnknown');
   const driverUniqueId = position?.attributes?.driverUniqueId;
 
+  const moving = item.status === 'online' && Boolean(position?.attributes?.motion);
+
+  // Cor e rótulo de status estilo Ruhavik
+  let statusColor;
+  let statusLabel;
+  if (item.status === 'online') {
+    statusColor = moving ? theme.palette.success.main : theme.palette.primary.main;
+    statusLabel = moving ? t('eventDeviceMoving') : t('deviceStatusOnline');
+  } else if (item.status === 'offline') {
+    statusColor = theme.palette.error.main;
+    statusLabel = t('deviceStatusOffline');
+  } else {
+    statusColor = theme.palette.neutral.main;
+    statusLabel = t('deviceStatusUnknown');
+  }
+  const relative = item.lastUpdate ? dayjs().to(item.lastUpdate) : null;
+
   return (
     <div style={style}>
-      <ListItemButton
-        key={item.id}
-        onClick={() => dispatch(devicesActions.selectId(item.id))}
-        disabled={!admin && item.disabled}
-        selected={selectedDeviceId === item.id}
-        className={selectedDeviceId === item.id ? classes.selected : null}
-        sx={{ padding: 0, borderBottom: '1px solid #e0e0e0' }}
-      >
-        <Box className={classes.container}>
-          
-          {/* Linha 1: Ícone Quadrado, Placa/Nome e Controles (Switch/Ignição) */}
-          <Box className={classes.topRow}>
-            <Box className={classes.vehicleInfo}>
-              <Box className={classes.iconWrapper}>
-                <LocalShippingIcon fontSize="small" />
+      <div className={classes.rowWrapper}>
+        <ListItemButton
+          key={item.id}
+          onClick={() => dispatch(devicesActions.selectId(item.id))}
+          disabled={!admin && item.disabled}
+          selected={selectedDeviceId === item.id}
+          className={cx(classes.card, selectedDeviceId === item.id && classes.cardSelected)}
+        >
+          <Box className={classes.container}>
+
+            {/* Linha 1: Avatar de status, Placa/Nome e Chip de status */}
+            <Box className={classes.topRow}>
+              <Box className={classes.vehicleInfo}>
+                <Avatar sx={{ width: 40, height: 40, bgcolor: statusColor }}>
+                  <LocalShippingIcon fontSize="small" />
+                </Avatar>
+                <Box className={classes.titleBlock}>
+                  <Typography className={classes.title}>{item[devicePrimary]}</Typography>
+                  <Typography className={classes.subtitle}>{item.uniqueId}</Typography>
+                </Box>
               </Box>
-              <Box className={classes.titleBlock}>
-                <Typography className={classes.title}>{item[devicePrimary]}</Typography>
-                <Typography className={classes.subtitle}>{item.uniqueId}</Typography>
+
+              <Box className={classes.controls}>
+                <Tooltip title={relative || ''}>
+                  <Chip
+                    size="small"
+                    label={statusLabel}
+                    className={classes.statusChip}
+                    sx={{ backgroundColor: statusColor, color: theme.palette.common.white }}
+                  />
+                </Tooltip>
+                {position && position.attributes.hasOwnProperty('ignition') && (
+                  <Tooltip title={`${t('positionIgnition')}: ${formatBoolean(position.attributes.ignition, t)}`}>
+                    <Box>
+                      {position.attributes.ignition ? (
+                        <EngineIcon width={16} height={16} className={classes.success} />
+                      ) : (
+                        <EngineIcon width={16} height={16} className={classes.neutral} />
+                      )}
+                    </Box>
+                  </Tooltip>
+                )}
               </Box>
             </Box>
-            
-            <Box className={classes.controls}>
-              <Switch size="small" defaultChecked color="primary" className={classes.switchSmall} />
-              {position && position.attributes.hasOwnProperty('ignition') && (
-                <Tooltip title={`${t('positionIgnition')}: ${formatBoolean(position.attributes.ignition, t)}`}>
-                  <Box mt={0.5}>
-                    {position.attributes.ignition ? (
-                      <EngineIcon width={16} height={16} className={classes.success} />
-                    ) : (
-                      <EngineIcon width={16} height={16} className={classes.neutral} />
-                    )}
-                  </Box>
-                </Tooltip>
+
+            {/* Linha 2: Data/Hora e Velocidade */}
+            <Box display="flex" gap={2}>
+              <Typography variant="body2" className={classes.infoRow}>
+                <AccessTimeIcon className={classes.iconSmall} />
+                {updateTime}
+              </Typography>
+              {position && (
+                <Typography variant="body2" className={classes.infoRow}>
+                  <SpeedIcon className={classes.iconSmall} />
+                  <span className={classes.speed}>{speed} km/h</span>
+                </Typography>
               )}
             </Box>
-          </Box>
 
-          {/* Linha 2: Data/Hora e Velocidade */}
-          <Box display="flex" gap={2}>
+            {/* Linha 3: Motorista */}
             <Typography variant="body2" className={classes.infoRow}>
-              <AccessTimeIcon className={classes.iconSmall} />
-              {updateTime}
+              <PersonIcon className={classes.iconSmall} />
+              {driverUniqueId ? <DriverValue driverUniqueId={driverUniqueId} /> : 'Motorista não identificado'}
             </Typography>
-            {position && (
-              <Typography variant="body2" className={classes.infoRow}>
-                <SpeedIcon className={classes.iconSmall} />
-                <span className={classes.speed}>{speed} km/h</span>
+
+            {/* Linha 4: Endereço */}
+            {address && (
+              <Typography
+                variant="body2"
+                className={classes.infoRow}
+                sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                <LocationOnIcon className={classes.iconSmall} />
+                {address}
               </Typography>
             )}
+
           </Box>
-
-          {/* Linha 3: Motorista */}
-          <Typography variant="body2" className={classes.infoRow}>
-            <PersonIcon className={classes.iconSmall} />
-            {driverUniqueId ? <DriverValue driverUniqueId={driverUniqueId} /> : 'Motorista não identificado'}
-          </Typography>
-
-          {/* Linha 4: Endereço */}
-          {address && (
-            <Typography 
-              variant="body2" 
-              className={classes.infoRow} 
-              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-            >
-              <LocationOnIcon className={classes.iconSmall} />
-              {address}
-            </Typography>
-          )}
-
-        </Box>
-      </ListItemButton>
+        </ListItemButton>
+      </div>
     </div>
   );
 };

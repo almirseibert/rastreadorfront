@@ -6,6 +6,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useDispatch, useSelector } from 'react-redux';
 import DeviceList from './DeviceList';
 import BottomMenu from '../common/components/BottomMenu';
+import AppSidebar from '../common/components/AppSidebar';
 import StatusCard from '../common/components/StatusCard';
 import { devicesActions } from '../store';
 import usePersistedState from '../common/util/usePersistedState';
@@ -25,10 +26,10 @@ const useStyles = makeStyles()((theme) => ({
       position: 'fixed',
       left: 0,
       top: 0,
-      width: '260px', // Nova coluna exclusiva para o menu lateral escuro
+      width: theme.dimensions.navSidebarWidth, // Coluna exclusiva para o menu lateral escuro
       height: '100%',
       zIndex: 10,
-      backgroundColor: '#20304a',
+      backgroundColor: theme.palette.sidebar.background,
       boxShadow: '2px 0 10px rgba(0,0,0,0.3)',
     },
     [theme.breakpoints.down('md')]: {
@@ -41,7 +42,7 @@ const useStyles = makeStyles()((theme) => ({
     flexDirection: 'column',
     [theme.breakpoints.up('md')]: {
       position: 'fixed',
-      left: '260px', // Afasta a lista de veículos 260px para a direita
+      left: theme.dimensions.navSidebarWidth, // Afasta a lista de veículos para a direita
       top: 0,
       height: '100%',
       width: theme.dimensions.drawerWidthDesktop,
@@ -137,7 +138,7 @@ const MainPage = () => {
     <div className={classes.root}>
       {desktop && (
         <div className={classes.navSidebar}>
-          <BottomMenu />
+          <AppSidebar />
         </div>
       )}
       {desktop && (
@@ -193,7 +194,7 @@ const MainPage = () => {
           deviceId={selectedDeviceId}
           position={selectedPosition}
           onClose={() => dispatch(devicesActions.selectId(null))}
-          desktopPadding={desktop ? `calc(260px + ${theme.dimensions.drawerWidthDesktop})` : theme.dimensions.drawerWidthDesktop}
+          desktopPadding={desktop ? `calc(${theme.dimensions.navSidebarWidth} + ${theme.dimensions.drawerWidthDesktop})` : theme.dimensions.drawerWidthDesktop}
         />
       )}
     </div>

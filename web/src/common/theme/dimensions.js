@@ -1,6 +1,8 @@
 export default {
   sidebarWidth: '28%',
   sidebarWidthTablet: '52px',
+  navSidebarWidth: '240px', // Sidebar de navegação escura no desktop
+  deviceRowHeight: 116, // Altura fixa dos cards da lista (react-window)
   drawerWidthDesktop: '340px', // Aumentado para acomodar confortavelmente o novo card detalhado
   drawerWidthTablet: '320px',
   drawerHeightPhone: '250px',

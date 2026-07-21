@@ -19,7 +19,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 const DeviceList = ({ devices }) => {
-  const { classes } = useStyles();
+  const { classes, theme } = useStyles();
   const dispatch = useDispatch();
 
   const [, setTime] = useState(Date.now());
@@ -41,7 +41,7 @@ const DeviceList = ({ devices }) => {
       className={classes.list}
       rowComponent={DeviceRow}
       rowCount={devices.length}
-      rowHeight={110} // <-- Aumentamos de 72 para 110 para caber o formato SigaSul
+      rowHeight={theme.dimensions.deviceRowHeight}
       rowProps={{ devices }}
       overscanCount={5}
     />
