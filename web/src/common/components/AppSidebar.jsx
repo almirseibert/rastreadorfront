@@ -76,7 +76,7 @@ const useStyles = makeStyles()((theme) => ({
     overflowY: 'auto',
   },
   listItem: {
-    padding: theme.spacing(1.5, 2),
+    padding: theme.spacing(1.25, 2),
     borderLeft: '4px solid transparent',
     '&:hover': {
       backgroundColor: theme.palette.sidebar.hover,
@@ -102,8 +102,10 @@ const useStyles = makeStyles()((theme) => ({
   },
   logout: {
     marginTop: 'auto',
+    flex: '0 0 auto',
+    padding: theme.spacing(1.25, 2),
+    borderTop: `1px solid ${theme.palette.sidebar.border}`,
     backgroundColor: theme.palette.sidebar.header,
-    padding: theme.spacing(2),
     '&:hover': {
       backgroundColor: theme.palette.error.dark,
     }

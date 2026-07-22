@@ -32,15 +32,26 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
     }),
+    // Mesmo visual escuro da AppSidebar (menu do mapa) para consistência.
+    backgroundColor: theme.palette.sidebar.background,
+    color: theme.palette.sidebar.text,
+    borderRight: `1px solid ${theme.palette.sidebar.border}`,
     '@media print': {
       display: 'none',
     },
   },
   mobileDrawer: {
     width: theme.dimensions.drawerWidthTablet,
+    backgroundColor: theme.palette.sidebar.background,
+    color: theme.palette.sidebar.text,
     '@media print': {
       display: 'none',
     },
+  },
+  drawerHeader: {
+    backgroundColor: theme.palette.sidebar.header,
+    color: theme.palette.sidebar.text,
+    borderBottom: `1px solid ${theme.palette.sidebar.border}`,
   },
   mobileToolbar: {
     zIndex: 1,
@@ -106,7 +117,7 @@ const PageLayout = ({ menu, breadcrumbs, children }) => {
           className={classes.desktopDrawer}
           classes={{ paper: classes.desktopDrawer }}
         >
-          <Toolbar>
+          <Toolbar className={classes.drawerHeader}>
             {!miniVariant && (
               <>
                 <IconButton
