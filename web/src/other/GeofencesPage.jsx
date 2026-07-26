@@ -16,7 +16,7 @@ import { useTranslation } from '../common/components/LocalizationProvider';
 import MapGeocoder from '../map/geocoder/MapGeocoder';
 import { errorsActions, geofencesActions } from '../store';
 import MapScale from '../map/MapScale';
-import BackIcon from '../common/components/BackIcon';
+import ViewLayout from '../common/components/ViewLayout';
 import fetchOrThrow from '../common/util/fetchOrThrow';
 import { geofenceToFeature } from '../map/core/mapUtil';
 import { buildKml, parseKml } from '../common/util/kml';
@@ -149,68 +149,64 @@ const GeofencesPage = () => {
   };
 
   return (
-    <div className={classes.root}>
-      <div className={classes.content}>
-        <Paper square className={classes.drawer}>
-          <Toolbar>
-            <IconButton edge="start" sx={{ mr: 2 }} onClick={() => navigate(-1)}>
-              <BackIcon />
-            </IconButton>
-            <Typography variant="h6" className={classes.title}>
-              {t('sharedGeofences')}
-            </Typography>
-            <Tooltip title={t('geofenceExport')}>
-              <span>
-                <IconButton
-                  onClick={handleExport}
-                  disabled={!Object.keys(geofences).length}
-                >
-                  <DownloadIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <label htmlFor="upload-geofence">
-              <input
-                accept=".gpx,.kml"
-                id="upload-geofence"
-                type="file"
-                className={classes.fileInput}
-                onChange={handleFile}
-              />
-              <Tooltip title={t('sharedUpload')}>
-                <IconButton edge="end" component="span">
-                  <UploadFileIcon />
-                </IconButton>
+    <ViewLayout title="sharedGeofences">
+      <div className={classes.root}>
+        <div className={classes.content}>
+          <Paper square className={classes.drawer}>
+            <Toolbar>
+              <Typography variant="h6" className={classes.title}>
+                {t('sharedGeofences')}
+              </Typography>
+              <Tooltip title={t('geofenceExport')}>
+                <span>
+                  <IconButton onClick={handleExport} disabled={!Object.keys(geofences).length}>
+                    <DownloadIcon />
+                  </IconButton>
+                </span>
               </Tooltip>
-            </label>
-          </Toolbar>
-          <Divider />
-          <GeofencesList onGeofenceSelected={setSelectedGeofenceId} />
-        </Paper>
-        <div className={classes.mapContainer}>
-          <MapView>
-            <MapGeofenceEdit selectedGeofenceId={selectedGeofenceId} onCreate={setWizardArea} />
-          </MapView>
-          <MapScale />
-          <MapCurrentLocation />
-          <MapGeocoder />
+              <label htmlFor="upload-geofence">
+                <input
+                  accept=".gpx,.kml"
+                  id="upload-geofence"
+                  type="file"
+                  className={classes.fileInput}
+                  onChange={handleFile}
+                />
+                <Tooltip title={t('sharedUpload')}>
+                  <IconButton edge="end" component="span">
+                    <UploadFileIcon />
+                  </IconButton>
+                </Tooltip>
+              </label>
+            </Toolbar>
+            <Divider />
+            <GeofencesList onGeofenceSelected={setSelectedGeofenceId} />
+          </Paper>
+          <div className={classes.mapContainer}>
+            <MapView>
+              <MapGeofenceEdit selectedGeofenceId={selectedGeofenceId} onCreate={setWizardArea} />
+            </MapView>
+            <MapScale />
+            <MapCurrentLocation />
+            <MapGeocoder />
+          </div>
         </div>
+        <GeofenceWizard
+          area={wizardArea}
+          onClose={() => setWizardArea(undefined)}
+          onSaved={() => {
+            setWizardArea(undefined);
+            setSnackbar(t('geofenceWizardSaved'));
+          }}
+        />
+        <Snackbar
+          open={Boolean(snackbar)}
+          autoHideDuration={snackBarDurationShortMs}
+          onClose={() => setSnackbar(undefined)}
+          message={snackbar}
+        />
       </div>
-      <GeofenceWizard
-        area={wizardArea}
-        onClose={() => setWizardArea(undefined)}
-        onSaved={() => {
-          setWizardArea(undefined);
-          setSnackbar(t('geofenceWizardSaved'));
-        }}
-      />
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={snackBarDurationShortMs}
-        onClose={() => setSnackbar(undefined)}
-        message={snackbar}
-      />
-    </div>
+    </ViewLayout>
   );
 };
 

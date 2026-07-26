@@ -3,10 +3,9 @@ import { Paper } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { useOutletContext } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import DeviceList from './DeviceList';
-import BottomMenu from '../common/components/BottomMenu';
-import AppSidebar from '../common/components/AppSidebar';
 import StatusCard from '../common/components/StatusCard';
 import { devicesActions } from '../store';
 import usePersistedState from '../common/util/usePersistedState';
@@ -19,55 +18,55 @@ import { useAttributePreference } from '../common/util/preferences';
 const useStyles = makeStyles()((theme) => ({
   root: {
     height: '100%',
+    width: '100%',
+    position: 'relative',
     display: 'flex',
   },
-  navSidebar: {
-    [theme.breakpoints.up('md')]: {
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      width: theme.dimensions.navSidebarWidth, // Coluna exclusiva para o menu lateral escuro
-      height: '100%',
-      zIndex: 10,
-      backgroundColor: theme.palette.sidebar.background,
-      boxShadow: '2px 0 10px rgba(0,0,0,0.3)',
-    },
-    [theme.breakpoints.down('md')]: {
-      display: 'none', // Oculta no telemóvel para usar o rodapé
-    }
+  // Painel flutuante de veículos sobre o mapa (estilo SigaSul), no desktop.
+  // Posicionado dentro da área de conteúdo do chrome global (App.jsx).
+  floatingSidebar: {
+    pointerEvents: 'none',
+    position: 'absolute',
+    left: theme.spacing(1.5),
+    top: theme.spacing(1.5),
+    bottom: theme.spacing(1.5),
+    width: theme.dimensions.drawerWidthDesktop,
+    display: 'flex',
+    flexDirection: 'column',
+    zIndex: 3,
   },
+  floatingPanel: {
+    pointerEvents: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  floatingPanelOpen: {
+    height: '100%',
+  },
+  floatingList: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  // Layout mobile (tela cheia com mapa atrás e menu inferior).
   sidebar: {
     pointerEvents: 'none',
     display: 'flex',
     flexDirection: 'column',
-    [theme.breakpoints.up('md')]: {
-      position: 'fixed',
-      left: theme.dimensions.navSidebarWidth, // Afasta a lista de veículos para a direita
-      top: 0,
-      height: '100%',
-      width: theme.dimensions.drawerWidthDesktop,
-      margin: 0, // Remove a margem flutuante antiga
-      backgroundColor: theme.palette.background.default,
-      borderRight: `1px solid ${theme.palette.divider}`,
-      zIndex: 3,
-    },
-    [theme.breakpoints.down('md')]: {
-      height: '100%',
-      width: '100%',
-    },
+    height: '100%',
+    width: '100%',
   },
   header: {
     pointerEvents: 'auto',
     zIndex: 6,
     boxShadow: 'none',
     borderBottom: `1px solid ${theme.palette.divider}`,
-  },
-  footer: {
-    pointerEvents: 'auto',
-    zIndex: 5,
-    [theme.breakpoints.up('md')]: {
-      display: 'none', // Oculta o menu de rodapé no computador
-    },
   },
   middle: {
     flex: 1,
@@ -88,7 +87,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 const MainPage = () => {
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles();
   const dispatch = useDispatch();
   const theme = useTheme();
 
@@ -112,6 +111,7 @@ const MainPage = () => {
   });
   const [filterSort, setFilterSort] = usePersistedState('filterSort', '');
   const [filterMap, setFilterMap] = usePersistedState('filterMap', false);
+  const { selectedGroup } = useOutletContext();
 
   const [devicesOpen, setDevicesOpen] = useState(desktop);
   const [eventsOpen, setEventsOpen] = useState(false);
@@ -127,6 +127,7 @@ const MainPage = () => {
   useFilter(
     keyword,
     filter,
+    selectedGroup,
     filterSort,
     filterMap,
     positions,
@@ -134,38 +135,51 @@ const MainPage = () => {
     setFilteredPositions,
   );
 
+  const toolbar = (
+    <MainToolbar
+      filteredDevices={filteredDevices}
+      devicesOpen={devicesOpen}
+      setDevicesOpen={setDevicesOpen}
+      keyword={keyword}
+      setKeyword={setKeyword}
+      filter={filter}
+      setFilter={setFilter}
+      filterSort={filterSort}
+      setFilterSort={setFilterSort}
+      filterMap={filterMap}
+      setFilterMap={setFilterMap}
+    />
+  );
+
   return (
     <div className={classes.root}>
-      {desktop && (
-        <div className={classes.navSidebar}>
-          <AppSidebar />
-        </div>
-      )}
-      {desktop && (
-        <MainMap
-          filteredPositions={filteredPositions}
-          selectedPosition={selectedPosition}
-          onEventsClick={onEventsClick}
-        />
-      )}
-      <div className={classes.sidebar}>
-        <Paper square elevation={3} className={classes.header}>
-          <MainToolbar
-            filteredDevices={filteredDevices}
-            devicesOpen={devicesOpen}
-            setDevicesOpen={setDevicesOpen}
-            keyword={keyword}
-            setKeyword={setKeyword}
-            filter={filter}
-            setFilter={setFilter}
-            filterSort={filterSort}
-            setFilterSort={setFilterSort}
-            filterMap={filterMap}
-            setFilterMap={setFilterMap}
+      {desktop ? (
+        <>
+          <MainMap
+            filteredPositions={filteredPositions}
+            selectedPosition={selectedPosition}
+            onEventsClick={onEventsClick}
           />
-        </Paper>
-        <div className={classes.middle}>
-          {!desktop && (
+          <div className={classes.floatingSidebar}>
+            <Paper
+              elevation={0}
+              className={cx(classes.floatingPanel, devicesOpen && classes.floatingPanelOpen)}
+            >
+              {toolbar}
+              {devicesOpen && (
+                <div className={classes.floatingList}>
+                  <DeviceList devices={filteredDevices} />
+                </div>
+              )}
+            </Paper>
+          </div>
+        </>
+      ) : (
+        <div className={classes.sidebar}>
+          <Paper square elevation={3} className={classes.header}>
+            {toolbar}
+          </Paper>
+          <div className={classes.middle}>
             <div className={classes.contentMap}>
               <MainMap
                 filteredPositions={filteredPositions}
@@ -173,28 +187,25 @@ const MainPage = () => {
                 onEventsClick={onEventsClick}
               />
             </div>
-          )}
-          <Paper
-            square
-            className={classes.contentList}
-            style={devicesOpen ? {} : { visibility: 'hidden' }}
-          >
-            <DeviceList devices={filteredDevices} />
-          </Paper>
-        </div>
-        {!desktop && (
-          <div className={classes.footer}>
-            <BottomMenu />
+            <Paper
+              square
+              className={classes.contentList}
+              style={devicesOpen ? {} : { visibility: 'hidden' }}
+            >
+              <DeviceList devices={filteredDevices} />
+            </Paper>
           </div>
-        )}
-      </div>
+        </div>
+      )}
       <EventsDrawer open={eventsOpen} onClose={() => setEventsOpen(false)} />
       {selectedDeviceId && (
         <StatusCard
           deviceId={selectedDeviceId}
           position={selectedPosition}
           onClose={() => dispatch(devicesActions.selectId(null))}
-          desktopPadding={desktop ? `calc(${theme.dimensions.navSidebarWidth} + ${theme.dimensions.drawerWidthDesktop})` : theme.dimensions.drawerWidthDesktop}
+          desktopPadding={
+            desktop ? theme.dimensions.navSidebarWidth : theme.dimensions.drawerWidthDesktop
+          }
         />
       )}
     </div>

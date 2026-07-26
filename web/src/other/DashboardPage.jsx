@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Box,
@@ -7,12 +6,10 @@ import {
   CardContent,
   Chip,
   FormControl,
-  IconButton,
   InputLabel,
   LinearProgress,
   MenuItem,
   Select,
-  Toolbar,
   Typography,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
@@ -42,8 +39,10 @@ import {
   speedUnitString,
 } from '../common/util/converter';
 import { useAttributePreference } from '../common/util/preferences';
+import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from '../common/components/LocalizationProvider';
-import BackIcon from '../common/components/BackIcon';
+import ViewLayout from '../common/components/ViewLayout';
+import { filterDevicesByGroup } from '../common/util/deviceGroups';
 import { useEffectAsync } from '../reactHelper';
 import fetchOrThrow from '../common/util/fetchOrThrow';
 
@@ -166,17 +165,19 @@ const ChartCard = ({ title, children }) => {
 const DashboardPage = () => {
   const { classes } = useStyles();
   const theme = useTheme();
-  const navigate = useNavigate();
   const t = useTranslation();
 
   const devices = useSelector((state) => state.devices.items);
+  const groups = useSelector((state) => state.groups.items);
 
   const distanceUnit = useAttributePreference('distanceUnit');
   const speedUnit = useAttributePreference('speedUnit');
 
+  const { selectedGroup } = useOutletContext();
+
   const deviceList = useMemo(
-    () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
+    () => filterDevicesByGroup(devices, groups, selectedGroup),
+    [devices, groups, selectedGroup],
   );
 
   const [period, setPeriod] = useState('week');
@@ -295,119 +296,70 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className={classes.root}>
-      <Toolbar className={classes.toolbar} disableGutters>
-        <IconButton edge="start" sx={{ ml: 1 }} onClick={() => navigate(-1)}>
-          <BackIcon />
-        </IconButton>
-        <Typography variant="h6" className={classes.title}>
-          {t('dashboardTitle')}
-        </Typography>
-      </Toolbar>
-      <div className={classes.filters}>
-        <FormControl fullWidth size="small">
-          <InputLabel>{t('sharedDevice')}</InputLabel>
-          <Select
-            label={t('sharedDevice')}
-            value={deviceId}
-            onChange={(e) => setDeviceId(e.target.value)}
-          >
-            <MenuItem value="all">{t('dashboardAllDevices')}</MenuItem>
-            {deviceList.map((device) => (
-              <MenuItem key={device.id} value={device.id}>
-                {device.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <div className={classes.periods}>
-          {periods.map((item) => (
-            <Chip
-              key={item.key}
-              size="small"
-              label={item.label}
-              color={period === item.key ? 'primary' : 'default'}
-              variant={period === item.key ? 'filled' : 'outlined'}
-              onClick={() => setPeriod(item.key)}
-            />
-          ))}
-        </div>
-      </div>
-      {loading && <LinearProgress />}
-      <div className={classes.content}>
-        {!loading && !hasData && (
-          <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
-        )}
-        {hasData && (
-          <>
-            <div className={classes.kpis}>
-              <KpiCard
-                icon={<RouteIcon fontSize="small" />}
-                label={t('sharedDistance')}
-                value={formatDistance(totals.distance, distanceUnit, t)}
-              />
-              <KpiCard
-                icon={<SpeedIcon fontSize="small" />}
-                label={t('reportMaximumSpeed')}
-                value={formatSpeed(totals.maxSpeed, speedUnit, t)}
-              />
-              <KpiCard
-                icon={<TimerIcon fontSize="small" />}
-                label={t('reportEngineHours')}
-                value={formatNumericHours(totals.engineHours, t)}
-              />
-              <KpiCard
-                icon={<DirectionsCarIcon fontSize="small" />}
-                label={t('dashboardActiveDevices')}
-                value={`${totals.activeDevices.size} / ${deviceList.length}`}
-              />
-            </div>
-
-            <ChartCard
-              title={`${t('dashboardDistancePerDay')} (${distanceUnitString(distanceUnit, t)})`}
+    <ViewLayout title="dashboardTitle">
+      <div className={classes.root}>
+        <div className={classes.filters}>
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('sharedDevice')}</InputLabel>
+            <Select
+              label={t('sharedDevice')}
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
             >
-              <BarChart data={dailySeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid
-                  stroke={theme.palette.divider}
-                  strokeDasharray="3 3"
-                  vertical={false}
+              <MenuItem value="all">{t('dashboardAllDevices')}</MenuItem>
+              {deviceList.map((device) => (
+                <MenuItem key={device.id} value={device.id}>
+                  {device.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <div className={classes.periods}>
+            {periods.map((item) => (
+              <Chip
+                key={item.key}
+                size="small"
+                label={item.label}
+                color={period === item.key ? 'primary' : 'default'}
+                variant={period === item.key ? 'filled' : 'outlined'}
+                onClick={() => setPeriod(item.key)}
+              />
+            ))}
+          </div>
+        </div>
+        {loading && <LinearProgress />}
+        <div className={classes.content}>
+          {!loading && !hasData && (
+            <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
+          )}
+          {hasData && (
+            <>
+              <div className={classes.kpis}>
+                <KpiCard
+                  icon={<RouteIcon fontSize="small" />}
+                  label={t('sharedDistance')}
+                  value={formatDistance(totals.distance, distanceUnit, t)}
                 />
-                <XAxis dataKey="date" {...axisProps} />
-                <YAxis {...axisProps} />
-                <ChartTooltip
-                  {...tooltipProps}
-                  formatter={(value) => [value, t('sharedDistance')]}
+                <KpiCard
+                  icon={<SpeedIcon fontSize="small" />}
+                  label={t('reportMaximumSpeed')}
+                  value={formatSpeed(totals.maxSpeed, speedUnit, t)}
                 />
-                <Bar dataKey="distance" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ChartCard>
+                <KpiCard
+                  icon={<TimerIcon fontSize="small" />}
+                  label={t('reportEngineHours')}
+                  value={formatNumericHours(totals.engineHours, t)}
+                />
+                <KpiCard
+                  icon={<DirectionsCarIcon fontSize="small" />}
+                  label={t('dashboardActiveDevices')}
+                  value={`${totals.activeDevices.size} / ${deviceList.length}`}
+                />
+              </div>
 
-            <ChartCard title={`${t('reportMaximumSpeed')} (${speedUnitString(speedUnit, t)})`}>
-              <LineChart data={dailySeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid
-                  stroke={theme.palette.divider}
-                  strokeDasharray="3 3"
-                  vertical={false}
-                />
-                <XAxis dataKey="date" {...axisProps} />
-                <YAxis {...axisProps} />
-                <ChartTooltip
-                  {...tooltipProps}
-                  formatter={(value) => [value, t('reportMaximumSpeed')]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="maxSpeed"
-                  stroke={theme.palette.error.main}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ChartCard>
-
-            {hasEngineHours && (
-              <ChartCard title={`${t('reportEngineHours')} (${t('sharedHourAbbreviation')})`}>
+              <ChartCard
+                title={`${t('dashboardDistancePerDay')} (${distanceUnitString(distanceUnit, t)})`}
+              >
                 <BarChart data={dailySeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid
                     stroke={theme.palette.divider}
@@ -418,52 +370,97 @@ const DashboardPage = () => {
                   <YAxis {...axisProps} />
                   <ChartTooltip
                     {...tooltipProps}
-                    formatter={(value) => [value, t('reportEngineHours')]}
+                    formatter={(value) => [value, t('sharedDistance')]}
                   />
-                  <Bar
-                    dataKey="engineHours"
-                    fill={theme.palette.secondary.main}
-                    radius={[4, 4, 0, 0]}
-                  />
+                  <Bar dataKey="distance" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ChartCard>
-            )}
 
-            {ranking.length > 1 && (
-              <ChartCard
-                title={`${t('dashboardRanking')} (${distanceUnitString(distanceUnit, t)})`}
-              >
-                <BarChart
-                  data={ranking}
-                  layout="vertical"
-                  margin={{ top: 5, right: 20, left: 10, bottom: 0 }}
-                >
+              <ChartCard title={`${t('reportMaximumSpeed')} (${speedUnitString(speedUnit, t)})`}>
+                <LineChart data={dailySeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid
                     stroke={theme.palette.divider}
                     strokeDasharray="3 3"
-                    horizontal={false}
+                    vertical={false}
                   />
-                  <XAxis type="number" {...axisProps} />
-                  <YAxis type="category" dataKey="name" width={110} {...axisProps} />
+                  <XAxis dataKey="date" {...axisProps} />
+                  <YAxis {...axisProps} />
                   <ChartTooltip
                     {...tooltipProps}
-                    formatter={(value) => [value, t('sharedDistance')]}
+                    formatter={(value) => [value, t('reportMaximumSpeed')]}
                   />
-                  <Bar dataKey="distance" radius={[0, 4, 4, 0]}>
-                    {ranking.map((entry, index) => (
-                      <Cell
-                        key={entry.name}
-                        fill={index === 0 ? theme.palette.success.main : theme.palette.primary.main}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
+                  <Line
+                    type="monotone"
+                    dataKey="maxSpeed"
+                    stroke={theme.palette.error.main}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
               </ChartCard>
-            )}
-          </>
-        )}
+
+              {hasEngineHours && (
+                <ChartCard title={`${t('reportEngineHours')} (${t('sharedHourAbbreviation')})`}>
+                  <BarChart data={dailySeries} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid
+                      stroke={theme.palette.divider}
+                      strokeDasharray="3 3"
+                      vertical={false}
+                    />
+                    <XAxis dataKey="date" {...axisProps} />
+                    <YAxis {...axisProps} />
+                    <ChartTooltip
+                      {...tooltipProps}
+                      formatter={(value) => [value, t('reportEngineHours')]}
+                    />
+                    <Bar
+                      dataKey="engineHours"
+                      fill={theme.palette.secondary.main}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartCard>
+              )}
+
+              {ranking.length > 1 && (
+                <ChartCard
+                  title={`${t('dashboardRanking')} (${distanceUnitString(distanceUnit, t)})`}
+                >
+                  <BarChart
+                    data={ranking}
+                    layout="vertical"
+                    margin={{ top: 5, right: 20, left: 10, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      stroke={theme.palette.divider}
+                      strokeDasharray="3 3"
+                      horizontal={false}
+                    />
+                    <XAxis type="number" {...axisProps} />
+                    <YAxis type="category" dataKey="name" width={110} {...axisProps} />
+                    <ChartTooltip
+                      {...tooltipProps}
+                      formatter={(value) => [value, t('sharedDistance')]}
+                    />
+                    <Bar dataKey="distance" radius={[0, 4, 4, 0]}>
+                      {ranking.map((entry, index) => (
+                        <Cell
+                          key={entry.name}
+                          fill={
+                            index === 0 ? theme.palette.success.main : theme.palette.primary.main
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ChartCard>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </ViewLayout>
   );
 };
 

@@ -1,14 +1,5 @@
-import {
-  Typography,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Avatar,
-  Box,
-} from '@mui/material';
+import { Tooltip } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
-import { useTheme } from '@mui/material/styles';
 
 import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -23,8 +14,9 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import { useTranslation } from './LocalizationProvider';
 import { useRestriction } from '../util/permissions';
 import useNavigation from './useNavigation';
-import LogoImage from '../../login/LogoImage';
+import LogoMark from './LogoMark';
 
+// Trilho de navegação vertical estilo SigaSul: ícones compactos com rótulo curto.
 const useStyles = makeStyles()((theme) => ({
   sidebar: {
     width: '100%',
@@ -36,91 +28,91 @@ const useStyles = makeStyles()((theme) => ({
     overflow: 'hidden',
   },
   logoContainer: {
-    padding: theme.spacing(2),
+    padding: theme.spacing(1.5, 0.5),
     display: 'flex',
     justifyContent: 'center',
-    backgroundColor: theme.palette.sidebar.header,
-    borderBottom: `1px solid ${theme.palette.sidebar.border}`,
-    '& svg': {
-      maxHeight: '40px',
-    }
-  },
-  header: {
-    padding: theme.spacing(2),
-    display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1.5),
     backgroundColor: theme.palette.sidebar.header,
     borderBottom: `1px solid ${theme.palette.sidebar.border}`,
-  },
-  avatar: {
-    backgroundColor: theme.palette.sidebar.text,
-    color: theme.palette.sidebar.background,
-    width: 40,
-    height: 40,
-  },
-  userName: {
-    fontWeight: 'bold',
-    fontSize: '0.85rem',
-    lineHeight: 1.2,
-  },
-  userEmail: {
-    fontSize: '0.7rem',
-    color: theme.palette.sidebar.textMuted,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
   },
   list: {
     flex: 1,
-    paddingTop: 0,
     overflowY: 'auto',
-  },
-  listItem: {
-    padding: theme.spacing(1.25, 2),
-    borderLeft: '4px solid transparent',
-    '&:hover': {
-      backgroundColor: theme.palette.sidebar.hover,
+    display: 'flex',
+    flexDirection: 'column',
+    // Esconde a barra de rolagem mas mantém o scroll funcional
+    scrollbarWidth: 'none',
+    '&::-webkit-scrollbar': {
+      display: 'none',
     },
   },
-  listItemSelected: {
-    backgroundColor: theme.palette.sidebar.selected,
-    borderLeft: `4px solid ${theme.palette.primary.main}`,
-  },
-  listIcon: {
+  item: {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(1.25, 0.5),
     color: theme.palette.sidebar.textMuted,
-    minWidth: '40px',
+    cursor: 'pointer',
+    border: 'none',
+    background: 'none',
+    width: '100%',
+    borderLeft: '3px solid transparent',
+    transition: theme.transitions.create(['background-color', 'color'], {
+      duration: theme.transitions.duration.shortest,
+    }),
+    '&:hover': {
+      backgroundColor: theme.palette.sidebar.hover,
+      color: theme.palette.sidebar.text,
+    },
+    '& svg': {
+      fontSize: '1.4rem',
+    },
   },
-  listIconSelected: {
-    color: theme.palette.primary.main,
-    minWidth: '40px',
+  itemSelected: {
+    backgroundColor: theme.palette.sidebar.selected,
+    borderLeft: `3px solid ${theme.palette.primary.main}`,
+    color: theme.palette.sidebar.text,
+    '& svg': {
+      color: theme.palette.primary.main,
+    },
   },
-  listText: {
-    '& span': {
-      fontSize: '0.85rem',
-      fontWeight: 500,
-    }
+  label: {
+    fontSize: '0.6rem',
+    fontWeight: 500,
+    lineHeight: 1.15,
+    textAlign: 'center',
+    letterSpacing: '0.01em',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    wordBreak: 'break-word',
   },
   logout: {
-    marginTop: 'auto',
-    flex: '0 0 auto',
-    padding: theme.spacing(1.25, 2),
     borderTop: `1px solid ${theme.palette.sidebar.border}`,
     backgroundColor: theme.palette.sidebar.header,
+    color: theme.palette.sidebar.textMuted,
     '&:hover': {
       backgroundColor: theme.palette.error.dark,
-    }
-  }
+      color: theme.palette.sidebar.text,
+    },
+    '& svg': {
+      fontSize: '1.25rem',
+    },
+  },
 }));
 
 const AppSidebar = () => {
-  const { classes } = useStyles();
-  const theme = useTheme();
+  const { classes, cx } = useStyles();
   const t = useTranslation();
 
   const readonly = useRestriction('readonly');
   const disableReports = useRestriction('disableReports');
 
-  const { user, currentSelection, handleSelection, handleAccount, handleLogout } = useNavigation();
+  const { currentSelection, handleSelection, handleAccount, handleLogout } = useNavigation();
 
   const selection = currentSelection();
 
@@ -132,7 +124,9 @@ const AppSidebar = () => {
     { key: 'trips', label: t('reportTrips'), icon: <RouteIcon /> },
     { key: 'timeline', label: t('timelineTitle'), icon: <ViewTimelineIcon /> },
     { key: 'devices', label: t('deviceTitle'), icon: <DirectionsCarIcon /> },
-    ...(!disableReports ? [{ key: 'reports', label: t('reportTitle'), icon: <DescriptionIcon /> }] : []),
+    ...(!disableReports
+      ? [{ key: 'reports', label: t('reportTitle'), icon: <DescriptionIcon /> }]
+      : []),
     { key: 'settings', label: t('settingsTitle'), icon: <SettingsIcon /> },
     ...(!readonly ? [{ key: 'account', label: t('settingsUser'), icon: <PersonIcon /> }] : []),
   ];
@@ -140,37 +134,30 @@ const AppSidebar = () => {
   return (
     <div className={classes.sidebar}>
       <div className={classes.logoContainer}>
-        <LogoImage color={theme.palette.sidebar.text} />
-      </div>
-      <div className={classes.header}>
-        <Avatar className={classes.avatar}><PersonIcon /></Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography className={classes.userName}>{user?.name}</Typography>
-          <Typography className={classes.userEmail}>{user?.email}</Typography>
-        </Box>
+        <LogoMark />
       </div>
 
-      <List className={classes.list}>
+      <div className={classes.list}>
         {items.map((item) => (
-          <ListItemButton
-            key={item.key}
-            className={`${classes.listItem} ${selection === item.key ? classes.listItemSelected : ''}`}
-            onClick={() => (item.key === 'account' ? handleAccount() : handleSelection(item.key))}
-          >
-            <ListItemIcon className={selection === item.key ? classes.listIconSelected : classes.listIcon}>
+          <Tooltip key={item.key} title={item.label} placement="right">
+            <button
+              type="button"
+              className={cx(classes.item, selection === item.key && classes.itemSelected)}
+              onClick={() => (item.key === 'account' ? handleAccount() : handleSelection(item.key))}
+            >
               {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.label} className={classes.listText} />
-          </ListItemButton>
+              <span className={classes.label}>{item.label}</span>
+            </button>
+          </Tooltip>
         ))}
-      </List>
+      </div>
 
-      <ListItemButton className={classes.logout} onClick={handleLogout}>
-        <ListItemIcon className={classes.listIcon}>
+      <Tooltip title={t('loginLogout')} placement="right">
+        <button type="button" className={cx(classes.item, classes.logout)} onClick={handleLogout}>
           <ExitToAppIcon />
-        </ListItemIcon>
-        <ListItemText primary={t('loginLogout')} className={classes.listText} />
-      </ListItemButton>
+          <span className={classes.label}>{t('loginLogout')}</span>
+        </button>
+      </Tooltip>
     </div>
   );
 };

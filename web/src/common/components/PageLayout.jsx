@@ -18,6 +18,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from './LocalizationProvider';
 import BackIcon from './BackIcon';
 
+// Layout das seções de Configurações/Relatórios. No desktop o trilho de navegação
+// e a barra de topo são globais (App.jsx); aqui renderizamos apenas o painel escuro
+// da seção (menu) + conteúdo, encaixados na área de conteúdo do chrome.
 const useStyles = makeStyles()((theme, { miniVariant }) => ({
   root: {
     height: '100%',
@@ -26,19 +29,28 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
       flexDirection: 'column',
     },
   },
-  desktopDrawer: {
+  desktopMenu: {
     width: miniVariant ? `calc(${theme.spacing(8)} + 1px)` : theme.dimensions.drawerWidthDesktop,
+    flexShrink: 0,
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
     }),
-    // Mesmo visual escuro da AppSidebar (menu do mapa) para consistência.
     backgroundColor: theme.palette.sidebar.background,
     color: theme.palette.sidebar.text,
     borderRight: `1px solid ${theme.palette.sidebar.border}`,
     '@media print': {
       display: 'none',
     },
+  },
+  desktopMenuList: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
   },
   mobileDrawer: {
     width: theme.dimensions.drawerWidthTablet,
@@ -61,6 +73,7 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
   },
   content: {
     flexGrow: 1,
+    minWidth: 0,
     alignItems: 'stretch',
     display: 'flex',
     flexDirection: 'column',
@@ -112,11 +125,7 @@ const PageLayout = ({ menu, breadcrumbs, children }) => {
   return (
     <div className={classes.root}>
       {desktop ? (
-        <Drawer
-          variant="permanent"
-          className={classes.desktopDrawer}
-          classes={{ paper: classes.desktopDrawer }}
-        >
+        <div className={classes.desktopMenu}>
           <Toolbar className={classes.drawerHeader}>
             {!miniVariant && (
               <>
@@ -145,8 +154,8 @@ const PageLayout = ({ menu, breadcrumbs, children }) => {
             </IconButton>
           </Toolbar>
           <Divider />
-          {menu}
-        </Drawer>
+          <div className={classes.desktopMenuList}>{menu}</div>
+        </div>
       ) : (
         <Drawer
           variant="temporary"

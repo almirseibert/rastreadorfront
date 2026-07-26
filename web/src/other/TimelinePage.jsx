@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   FormControl,
@@ -7,9 +7,6 @@ import {
   Select,
   MenuItem,
   Typography,
-  Box,
-  IconButton,
-  Toolbar,
   LinearProgress,
   Avatar,
 } from '@mui/material';
@@ -30,7 +27,8 @@ import {
 } from '../common/util/formatter';
 import { useAttributePreference } from '../common/util/preferences';
 import { useTranslation } from '../common/components/LocalizationProvider';
-import BackIcon from '../common/components/BackIcon';
+import ViewLayout from '../common/components/ViewLayout';
+import { filterDevicesByGroup } from '../common/util/deviceGroups';
 import DateStrip from '../common/components/DateStrip';
 import { useEffectAsync } from '../reactHelper';
 import fetchOrThrow from '../common/util/fetchOrThrow';
@@ -119,21 +117,29 @@ const eventIcon = (type) => {
 
 const TimelinePage = () => {
   const { classes } = useStyles();
-  const navigate = useNavigate();
   const t = useTranslation();
 
   const devices = useSelector((state) => state.devices.items);
+  const groups = useSelector((state) => state.groups.items);
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
 
   const distanceUnit = useAttributePreference('distanceUnit');
 
+  const { selectedGroup } = useOutletContext();
+
   const deviceList = useMemo(
-    () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
+    () => filterDevicesByGroup(devices, groups, selectedGroup),
+    [devices, groups, selectedGroup],
   );
 
   const [deviceId, setDeviceId] = useState(selectedDeviceId || deviceList[0]?.id || '');
   const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
+
+  useEffect(() => {
+    if (deviceId && !deviceList.some((device) => device.id === deviceId)) {
+      setDeviceId(deviceList[0]?.id || '');
+    }
+  }, [deviceList, deviceId]);
   const [events, setEvents] = useState([]);
   const [trips, setTrips] = useState([]);
   const [stops, setStops] = useState([]);
@@ -213,97 +219,90 @@ const TimelinePage = () => {
   }, [events, trips, stops]);
 
   return (
-    <div className={classes.root}>
-      <Toolbar className={classes.toolbar} disableGutters>
-        <IconButton edge="start" sx={{ ml: 1 }} onClick={() => navigate(-1)}>
-          <BackIcon />
-        </IconButton>
-        <Typography variant="h6" className={classes.title}>
-          {t('timelineTitle')}
-        </Typography>
-      </Toolbar>
-      <div className={classes.filters}>
-        <FormControl fullWidth size="small">
-          <InputLabel>{t('sharedDevice')}</InputLabel>
-          <Select
-            label={t('sharedDevice')}
-            value={deviceId}
-            onChange={(e) => setDeviceId(e.target.value)}
-          >
-            {deviceList.map((device) => (
-              <MenuItem key={device.id} value={device.id}>
-                {device.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
-      </div>
-      {loading && <LinearProgress />}
-      <div className={classes.list}>
-        {!loading && timeline.length === 0 && (
-          <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
-        )}
-        {timeline.map((entry) => (
-          <div key={entry.key} className={classes.entry}>
-            <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: entry.color === 'primary' ? 'primary.main' : 'neutral.main',
-              }}
+    <ViewLayout title="timelineTitle">
+      <div className={classes.root}>
+        <div className={classes.filters}>
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('sharedDevice')}</InputLabel>
+            <Select
+              label={t('sharedDevice')}
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
             >
-              {entry.icon}
-            </Avatar>
-            <div className={classes.entryBody}>
-              {entry.trip && (
-                <>
-                  <Typography className={classes.entryTitle}>
-                    {t('reportTrips')}: {dayjs(entry.trip.startTime).format('HH:mm')}
-                    {' — '}
-                    {dayjs(entry.trip.endTime).format('HH:mm')}
-                  </Typography>
-                  <Typography className={classes.entryDetail}>
-                    {formatDistance(entry.trip.distance, distanceUnit, t)}
-                    {' · '}
-                    {formatNumericHours(entry.trip.duration, t)}
-                  </Typography>
-                  {entry.trip.endAddress && (
-                    <Typography className={classes.entryDetail}>
-                      {entry.trip.endAddress}
+              {deviceList.map((device) => (
+                <MenuItem key={device.id} value={device.id}>
+                  {device.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
+        </div>
+        {loading && <LinearProgress />}
+        <div className={classes.list}>
+          {!loading && timeline.length === 0 && (
+            <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
+          )}
+          {timeline.map((entry) => (
+            <div key={entry.key} className={classes.entry}>
+              <Avatar
+                sx={{
+                  width: 40,
+                  height: 40,
+                  bgcolor: entry.color === 'primary' ? 'primary.main' : 'neutral.main',
+                }}
+              >
+                {entry.icon}
+              </Avatar>
+              <div className={classes.entryBody}>
+                {entry.trip && (
+                  <>
+                    <Typography className={classes.entryTitle}>
+                      {t('reportTrips')}: {dayjs(entry.trip.startTime).format('HH:mm')}
+                      {' — '}
+                      {dayjs(entry.trip.endTime).format('HH:mm')}
                     </Typography>
-                  )}
-                </>
-              )}
-              {entry.stop && (
-                <>
+                    <Typography className={classes.entryDetail}>
+                      {formatDistance(entry.trip.distance, distanceUnit, t)}
+                      {' · '}
+                      {formatNumericHours(entry.trip.duration, t)}
+                    </Typography>
+                    {entry.trip.endAddress && (
+                      <Typography className={classes.entryDetail}>
+                        {entry.trip.endAddress}
+                      </Typography>
+                    )}
+                  </>
+                )}
+                {entry.stop && (
+                  <>
+                    <Typography className={classes.entryTitle}>
+                      {'Parada'}: {dayjs(entry.stop.startTime).format('HH:mm')}
+                      {' — '}
+                      {dayjs(entry.stop.endTime).format('HH:mm')}
+                    </Typography>
+                    <Typography className={classes.entryDetail}>
+                      {formatNumericHours(entry.stop.duration, t)}
+                    </Typography>
+                    {entry.stop.address && (
+                      <Typography className={classes.entryDetail}>{entry.stop.address}</Typography>
+                    )}
+                  </>
+                )}
+                {entry.event && (
                   <Typography className={classes.entryTitle}>
-                    {'Parada'}:{' '}
-                    {dayjs(entry.stop.startTime).format('HH:mm')}
-                    {' — '}
-                    {dayjs(entry.stop.endTime).format('HH:mm')}
+                    {formatEventTitle(entry.event)}
                   </Typography>
-                  <Typography className={classes.entryDetail}>
-                    {formatNumericHours(entry.stop.duration, t)}
-                  </Typography>
-                  {entry.stop.address && (
-                    <Typography className={classes.entryDetail}>{entry.stop.address}</Typography>
-                  )}
-                </>
-              )}
-              {entry.event && (
-                <Typography className={classes.entryTitle}>
-                  {formatEventTitle(entry.event)}
-                </Typography>
-              )}
+                )}
+              </div>
+              <Typography className={classes.entryTime}>
+                {dayjs(entry.time).format('HH:mm')}
+              </Typography>
             </div>
-            <Typography className={classes.entryTime}>
-              {dayjs(entry.time).format('HH:mm')}
-            </Typography>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </ViewLayout>
   );
 };
 

@@ -16,6 +16,8 @@ import {
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
+import AddModeratorIcon from '@mui/icons-material/AddModerator';
+import RemoveModeratorIcon from '@mui/icons-material/RemoveModerator';
 import { useTranslation } from './LocalizationProvider';
 import { useRestriction } from '../util/permissions';
 import { useCatchCallback, useEffectAsync } from '../../reactHelper';
@@ -26,6 +28,8 @@ import fetchOrThrow from '../util/fetchOrThrow';
 const quickActions = [
   { type: 'engineStop', Icon: LockIcon, color: 'error', critical: true },
   { type: 'engineResume', Icon: LockOpenIcon, color: 'success', critical: true },
+  { type: 'alarmArm', Icon: AddModeratorIcon, color: 'warning', critical: true },
+  { type: 'alarmDisarm', Icon: RemoveModeratorIcon, color: 'info', critical: true },
   { type: 'positionSingle', Icon: MyLocationIcon, color: 'primary', critical: false },
 ];
 

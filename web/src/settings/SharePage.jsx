@@ -15,17 +15,23 @@ import {
   IconButton,
   InputAdornment,
   Tooltip,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
   useTheme,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import ShareIcon from '@mui/icons-material/Share';
 import LinkIcon from '@mui/icons-material/Link';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import QRCode from 'react-qr-code';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import PageLayout from '../common/components/PageLayout';
 import SettingsMenu from './components/SettingsMenu';
-import { useCatchCallback } from '../reactHelper';
+import { useCatch, useCatchCallback, useEffectAsync } from '../reactHelper';
+import { formatTime } from '../common/util/formatter';
 import { snackBarDurationShortMs } from '../common/util/duration';
 import useSettingsStyles from './common/useSettingsStyles';
 import fetchOrThrow from '../common/util/fetchOrThrow';
@@ -53,6 +59,21 @@ const SharePage = () => {
   );
   const [link, setLink] = useState();
   const [copied, setCopied] = useState(false);
+  const [shares, setShares] = useState([]);
+  const [sharesTimestamp, setSharesTimestamp] = useState(0);
+
+  // Compartilhamentos ativos = usuários temporários com acesso a este dispositivo
+  // (cada link de compartilhamento cria um usuário temporário no Traccar).
+  useEffectAsync(async () => {
+    const response = await fetchOrThrow(`/api/users?deviceId=${id}`);
+    const users = await response.json();
+    setShares(users.filter((user) => user.temporary));
+  }, [id, sharesTimestamp]);
+
+  const handleRevoke = useCatch(async (userId) => {
+    await fetchOrThrow(`/api/users/${userId}`, { method: 'DELETE' });
+    setSharesTimestamp((value) => value + 1);
+  });
 
   const applyPreset = (index) => {
     setPreset(index);
@@ -71,6 +92,7 @@ const SharePage = () => {
     });
     const token = await response.text();
     setLink(`${window.location.origin}?token=${token}`);
+    setSharesTimestamp((value) => value + 1);
   }, [id, expiration, preset, setLink]);
 
   const handleCopy = async () => {
@@ -188,6 +210,47 @@ const SharePage = () => {
             )}
           </CardContent>
         </Card>
+
+        {shares.length > 0 && (
+          <Card elevation={0} sx={{ mt: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+            <CardContent sx={{ pb: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                {t('deviceShareActive')}
+              </Typography>
+              <List disablePadding>
+                {shares.map((share, index) => (
+                  <div key={share.id}>
+                    {index > 0 && <Divider component="li" />}
+                    <ListItem
+                      disableGutters
+                      secondaryAction={
+                        <Tooltip title={t('sharedRemove')}>
+                          <IconButton
+                            edge="end"
+                            size="small"
+                            onClick={() => handleRevoke(share.id)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                    >
+                      <ListItemText
+                        primary={share.name}
+                        secondary={
+                          share.expirationTime
+                            ? `${t('userExpirationTime')}: ${formatTime(share.expirationTime, 'minutes')}`
+                            : null
+                        }
+                      />
+                    </ListItem>
+                  </div>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        )}
+
         <div className={classes.buttons}>
           <Button type="button" color="primary" variant="outlined" onClick={() => navigate(-1)}>
             {t('sharedCancel')}

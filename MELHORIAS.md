@@ -1,7 +1,7 @@
 # Argos Track — Análise e Roadmap de Melhorias
 
 > Documento vivo. Atualize a cada ciclo de trabalho.
-> Última atualização: 2026-07-21
+> Última atualização: 2026-07-26
 
 ## 1. Estado atual
 
@@ -124,6 +124,94 @@ usuário logado pode ver; hooks `useAdministrator`/`useManager`/`useRestriction`
 - Assistente "Nova empresa" que cria usuário-gestor + grupo + vinculações em um passo só.
 - Coluna "Empresa/Grupo" e filtro por grupo na lista de dispositivos do admin.
 - Tela de visão geral para o master: contagem de dispositivos por empresa, últimos online.
+
+## 2.3 Redesign de navegação estilo SigaSul (2026-07-26)
+
+Referência visual: screenshots reais do SigaSul (trilho de ícones à esquerda sempre visível).
+- [x] **Trilho de ícones** (`AppSidebar.jsx`): o menu escuro de 240px virou um trilho fino de
+      84px (`dimensions.navSidebarWidth`) com ícone + rótulo curto e item ativo destacado
+      (borda + cor primária); resolve as "duas colunas" da tela inicial.
+- [x] **Monograma compacto** (`LogoMark.jsx`): quadrado branco com "A" + "ARGOS" no topo do
+      trilho (o logo SVG completo tem 280KB, ilegível em miniatura); respeita
+      `server.attributes.logo` (white-label) quando existir.
+- [x] **Lista de veículos flutuante** (`MainPage.jsx`): no desktop o mapa ocupa toda a área à
+      direita do trilho e a lista virou um painel flutuante arredondado com sombra, retrátil
+      pelo botão da toolbar; `MapPadding` recalculado (trilho + painel). Mobile inalterado.
+- [x] **Botão "Sair" reduzido** a um ícone pequeno no rodapé do trilho (era botão vermelho
+      de largura total).
+- [x] **Trilho global no `PageLayout`**: Configurações/Relatórios agora mostram o mesmo trilho
+      à esquerda (paper do Drawer MUI é `position:fixed`, então o `left` do painel de seção é
+      compensado pela largura do trilho). Padrão de navegação unificado em todas as telas.
+- [x] **Barra de topo horizontal** (`MainTopBar.jsx`, desktop): à direita do trilho, com
+      navegação de "views" (Mapa · Painel · Viagens · Linha do Tempo · Relatórios, item ativo
+      destacado) e, à direita, o menu do usuário (conta/sair). Altura em
+      `dimensions.topBarHeight` (52px); `MapPadding` ganhou parâmetro `top` para empurrar os
+      controles do mapa (zoom/troca de estilo) abaixo da barra; painel flutuante desce junto.
+- [x] **Seletor de empresa/grupo** no topo (visível a admin/gestor com grupos): dropdown que
+      filtra toda a frota por grupo; "Todos os dispositivos" limpa o filtro. Equivalente ao
+      seletor de cliente do SigaSul.
+- [x] **Grupo persistido e global** (`usePersistedState('selectedGroupId')`): a empresa
+      escolhida é salva no localStorage e vale entre sessões e entre páginas. `useFilter`
+      passou a receber `selectedGroup`; util `common/util/deviceGroups.js` centraliza o filtro
+      por hierarquia de grupos.
+- [x] **Barra de topo em todas as páginas de view** via novo `ViewLayout.jsx` (trilho + barra
+      de topo no desktop; AppBar + menu inferior no mobile): aplicado a Painel, Viagens, Linha
+      do Tempo e Geofences (cabeçalhos "voltar+título" redundantes removidos). Nessas páginas o
+      seletor de empresa filtra os dispositivos disponíveis (dropdown/agregação), e o device
+      selecionado é resetado se sair do grupo.
+- [x] **Chrome global único em `App.jsx`** (2026-07-26): o trilho (`AppSidebar`) + a barra de
+      topo (`MainTopBar`) passaram a ser renderizados **uma única vez** em `App.jsx` (desktop),
+      envolvendo o `<Outlet>`. Eliminou a duplicação entre `MainPage` e `ViewLayout` e passou a
+      **cobrir também Configurações/Relatórios** com a barra de topo.
+  - `App.jsx` é dono do `selectedGroup` (`usePersistedState`) e o distribui via
+    `Outlet context`; as páginas consomem por `useOutletContext()` (fim das cópias locais de
+    `usePersistedState('selectedGroupId')` em Main/Dashboard/Trips/Timeline/Geofences).
+  - `ViewLayout` virou wrapper **só-mobile** (AppBar voltar+título); no desktop é passthrough.
+  - `PageLayout` deixou de renderizar o próprio trilho e trocou o `Drawer` fixo do desktop por
+    um painel flex, encaixado abaixo da barra de topo global (sem mais compensação de `left`).
+  - `MainPage`/`MainMap`: painel flutuante agora é `position:absolute` na área de conteúdo e o
+    `MapPadding` perdeu os offsets de trilho/topbar (já fora da área do mapa). Rodapé mobile
+    duplicado (`BottomMenu`) removido — o menu inferior é único, vindo do `App`.
+  - Rotas de detalhe (`/replay`, `/position`, `/network`, `/event`, `/emulator`) ficam **sem**
+    o chrome (tela cheia própria), via lista `bareLayoutPaths` em `App.jsx`.
+
+## 2.4 Frentes 1–3 (2026-07-26)
+
+### Frente 1 — Master × empresas
+- [x] **Assistente "Nova empresa"** (`web/src/settings/components/CompanyWizard.jsx`): num único
+      passo cria o gestor (`POST /api/users` com `userLimit:-1`), cria o grupo/empresa
+      (`POST /api/groups`), move os dispositivos escolhidos para o grupo
+      (`PUT /api/devices/:id` com `groupId`) e liga o grupo ao gestor
+      (`POST /api/permissions {userId, groupId}`). Atualiza a store (`groupsActions.refresh` +
+      `devicesActions.update`) para refletir sem recarregar.
+- [x] **Visão geral do master** (`web/src/settings/CompaniesPage.jsx`, rota `/settings/companies`,
+      item "Empresas" no `SettingsMenu` só para admin): uma linha por empresa com contagem de
+      dispositivos, online/offline (chips) e última atualização; ações editar/remover/conexões.
+      Linha "Sem grupo" agrega dispositivos ainda não vinculados.
+- [x] Coluna "Empresa/Grupo" na lista de dispositivos já existia (`DevicesPage`, `groupParent`);
+      filtro por grupo já disponível pelo seletor da barra de topo global.
+
+### Frente 2 — Refinamentos das fases
+- [x] **Arm/Disarm no `QuickCommands`**: novos atalhos `alarmArm` (escudo, âmbar) e `alarmDisarm`
+      (escudo removido, azul), ambos com confirmação; aparecem só quando o dispositivo tem saved
+      command do tipo ou o protocolo suporta (mesma lógica de disponibilidade dos demais).
+- [x] **Consumo (`spentFuel`) no card de Viagens** (`TripsPage`): mostra o combustível gasto por
+      viagem quando a API retorna (`> 0`), respeitando `volumeUnit` do usuário (`formatVolume`).
+- [x] **Compartilhamentos ativos com revogação** (`SharePage`): lista os usuários temporários com
+      acesso ao dispositivo (`GET /api/users?deviceId=`), com validade e botão de revogar
+      (`DELETE /api/users/:id`). Recarrega após criar/revogar.
+- [ ] **Timeline → ponto no mapa**: adiado. A `TimelinePage` é hoje só-lista; pôr eventos no mapa
+      exige redesenhar a página (lista + mapa, como Viagens). Melhor como mudança focada própria.
+
+### Frente 3 — Higiene e testes
+- [x] **Smoke test Playwright** (`web/tests/smoke.spec.js` + `web/playwright.config.js`): teste
+      base (app sobe e mostra o login, seletores por tipo/estrutura, sem depender de idioma) e um
+      caminho autenticado (login + canvas do mapa) que só roda com `E2E_EMAIL`/`E2E_PASSWORD`.
+      Scripts `test:e2e`/`test:e2e:ui`; requer `npm install` + `npx playwright install`.
+      `eslint.config.js` ganhou override com globals de Node para `tests/**` e `playwright.config.js`.
+- [x] Revisão de Configurações/Relatórios após a troca do `PageLayout`: a área de conteúdo ficou
+      equivalente à anterior (mesmo `content` flex/scroll); painel de seção virou `div` flex.
+      Build de produção validado (2278 módulos, sem erros).
 
 ## 3. Roadmap (próximas fases)
 

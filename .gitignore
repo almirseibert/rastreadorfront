@@ -11,3 +11,8 @@ traccar.local.xml
 
 # Config local do Claude Code (permissões específicas da máquina)
 .claude/settings.local.json
+
+# Playwright (testes e2e)
+web/test-results/
+web/playwright-report/
+web/.playwright/

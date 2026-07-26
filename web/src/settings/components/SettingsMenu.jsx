@@ -7,6 +7,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BuildIcon from '@mui/icons-material/Build';
 import PeopleIcon from '@mui/icons-material/People';
+import BusinessIcon from '@mui/icons-material/Business';
 import TodayIcon from '@mui/icons-material/Today';
 import SendIcon from '@mui/icons-material/Send';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -153,6 +154,14 @@ const SettingsMenu = () => {
                 location.pathname !== `/settings/user/${userId}`
               }
             />
+            {admin && (
+              <MenuItem
+                title={t('settingsCompanies')}
+                link="/settings/companies"
+                icon={<BusinessIcon />}
+                selected={location.pathname === '/settings/companies'}
+              />
+            )}
           </List>
         </>
       )}

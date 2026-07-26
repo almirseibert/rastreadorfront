@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Card,
@@ -11,7 +11,6 @@ import {
   Typography,
   Box,
   IconButton,
-  Toolbar,
   Tooltip,
   LinearProgress,
 } from '@mui/material';
@@ -25,10 +24,12 @@ import {
   formatDistance,
   formatSpeed,
   formatNumericHours,
+  formatVolume,
 } from '../common/util/formatter';
 import { useAttributePreference } from '../common/util/preferences';
 import { useTranslation } from '../common/components/LocalizationProvider';
-import BackIcon from '../common/components/BackIcon';
+import ViewLayout from '../common/components/ViewLayout';
+import { filterDevicesByGroup } from '../common/util/deviceGroups';
 import { useEffectAsync } from '../reactHelper';
 import MapView from '../map/core/MapView';
 import MapRoutePath from '../map/MapRoutePath';
@@ -166,18 +167,29 @@ const TripsPage = () => {
   const t = useTranslation();
 
   const devices = useSelector((state) => state.devices.items);
+  const groups = useSelector((state) => state.groups.items);
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
 
   const distanceUnit = useAttributePreference('distanceUnit');
   const speedUnit = useAttributePreference('speedUnit');
+  const volumeUnit = useAttributePreference('volumeUnit');
+
+  const { selectedGroup } = useOutletContext();
 
   const deviceList = useMemo(
-    () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
+    () => filterDevicesByGroup(devices, groups, selectedGroup),
+    [devices, groups, selectedGroup],
   );
 
   const [deviceId, setDeviceId] = useState(selectedDeviceId || deviceList[0]?.id || '');
   const [selectedDate, setSelectedDate] = useState(dayjs().startOf('day'));
+
+  // Se a empresa selecionada mudar e o dispositivo atual não pertencer a ela, escolhe o primeiro
+  useEffect(() => {
+    if (deviceId && !deviceList.some((device) => device.id === deviceId)) {
+      setDeviceId(deviceList[0]?.id || '');
+    }
+  }, [deviceList, deviceId]);
   const [trips, setTrips] = useState([]);
   const [stops, setStops] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -267,196 +279,200 @@ const TripsPage = () => {
   ];
 
   return (
-    <div className={classes.root}>
-      <div className={classes.content}>
-        <div className={classes.drawer}>
-          <Toolbar className={classes.toolbar} disableGutters>
-            <IconButton edge="start" sx={{ ml: 1 }} onClick={() => navigate(-1)}>
-              <BackIcon />
-            </IconButton>
-            <Typography variant="h6" className={classes.title}>
-              {t('reportTrips')}
-            </Typography>
-          </Toolbar>
-          <div className={classes.filters}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('sharedDevice')}</InputLabel>
-              <Select
-                label={t('sharedDevice')}
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-              >
-                {deviceList.map((device) => (
-                  <MenuItem key={device.id} value={device.id}>
-                    {device.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
-          </div>
-          {loading && <LinearProgress />}
-          {timeline.length > 0 && (
-            <div className={classes.summary}>
-              <span>
-                {t('reportTrips')}: <span className={classes.metricValue}>{trips.length}</span>
-              </span>
-              <span>
-                {t('sharedDistance')}:{' '}
-                <span className={classes.metricValue}>
-                  {formatDistance(totalDistance, distanceUnit, t)}
-                </span>
-              </span>
-              <span>
-                {t('reportDuration')}:{' '}
-                <span className={classes.metricValue}>{formatNumericHours(totalDuration, t)}</span>
-              </span>
+    <ViewLayout title="reportTrips">
+      <div className={classes.root}>
+        <div className={classes.content}>
+          <div className={classes.drawer}>
+            <div className={classes.filters}>
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('sharedDevice')}</InputLabel>
+                <Select
+                  label={t('sharedDevice')}
+                  value={deviceId}
+                  onChange={(e) => setDeviceId(e.target.value)}
+                >
+                  {deviceList.map((device) => (
+                    <MenuItem key={device.id} value={device.id}>
+                      {device.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
             </div>
-          )}
-          <div className={classes.list}>
-            {!loading && timeline.length === 0 && (
-              <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
+            {loading && <LinearProgress />}
+            {timeline.length > 0 && (
+              <div className={classes.summary}>
+                <span>
+                  {t('reportTrips')}: <span className={classes.metricValue}>{trips.length}</span>
+                </span>
+                <span>
+                  {t('sharedDistance')}:{' '}
+                  <span className={classes.metricValue}>
+                    {formatDistance(totalDistance, distanceUnit, t)}
+                  </span>
+                </span>
+                <span>
+                  {t('reportDuration')}:{' '}
+                  <span className={classes.metricValue}>
+                    {formatNumericHours(totalDuration, t)}
+                  </span>
+                </span>
+              </div>
             )}
-            {timeline.map((entry) =>
-              entry.type === 'trip' ? (
-                <Card
-                  key={`trip-${entry.item.startPositionId}`}
-                  elevation={0}
-                  className={cx(
-                    classes.card,
-                    selectedTrip === entry.item && classes.cardSelected,
-                  )}
-                  onClick={() =>
-                    setSelectedTrip((current) => (current === entry.item ? null : entry.item))
-                  }
-                >
-                  <CardContent>
-                    <Box className={classes.cardHeader}>
-                      <Box className={classes.cardTitle}>
-                        <RouteIcon className={classes.tripIcon} fontSize="small" />
-                        <span>
-                          {dayjs(entry.item.startTime).format('HH:mm')}
-                          {' — '}
-                          {dayjs(entry.item.endTime).format('HH:mm')}
-                        </span>
+            <div className={classes.list}>
+              {!loading && timeline.length === 0 && (
+                <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
+              )}
+              {timeline.map((entry) =>
+                entry.type === 'trip' ? (
+                  <Card
+                    key={`trip-${entry.item.startPositionId}`}
+                    elevation={0}
+                    className={cx(
+                      classes.card,
+                      selectedTrip === entry.item && classes.cardSelected,
+                    )}
+                    onClick={() =>
+                      setSelectedTrip((current) => (current === entry.item ? null : entry.item))
+                    }
+                  >
+                    <CardContent>
+                      <Box className={classes.cardHeader}>
+                        <Box className={classes.cardTitle}>
+                          <RouteIcon className={classes.tripIcon} fontSize="small" />
+                          <span>
+                            {dayjs(entry.item.startTime).format('HH:mm')}
+                            {' — '}
+                            {dayjs(entry.item.endTime).format('HH:mm')}
+                          </span>
+                        </Box>
+                        <Tooltip title={t('reportReplay')}>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToReplay(entry.item);
+                            }}
+                          >
+                            <PlayArrowIcon />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
-                      <Tooltip title={t('reportReplay')}>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigateToReplay(entry.item);
-                          }}
-                        >
-                          <PlayArrowIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                    <Box className={classes.metrics}>
-                      <span>
-                        {t('sharedDistance')}:{' '}
-                        <span className={classes.metricValue}>
-                          {formatDistance(entry.item.distance, distanceUnit, t)}
-                        </span>
-                      </span>
-                      <span>
-                        {t('reportDuration')}:{' '}
-                        <span className={classes.metricValue}>
-                          {formatNumericHours(entry.item.duration, t)}
-                        </span>
-                      </span>
-                      {entry.item.averageSpeed > 0 && (
+                      <Box className={classes.metrics}>
                         <span>
-                          {t('reportAverageSpeed')}:{' '}
+                          {t('sharedDistance')}:{' '}
                           <span className={classes.metricValue}>
-                            {formatSpeed(entry.item.averageSpeed, speedUnit, t)}
+                            {formatDistance(entry.item.distance, distanceUnit, t)}
                           </span>
                         </span>
-                      )}
-                      {entry.item.maxSpeed > 0 && (
                         <span>
-                          {t('reportMaximumSpeed')}:{' '}
+                          {t('reportDuration')}:{' '}
                           <span className={classes.metricValue}>
-                            {formatSpeed(entry.item.maxSpeed, speedUnit, t)}
+                            {formatNumericHours(entry.item.duration, t)}
                           </span>
                         </span>
-                      )}
-                    </Box>
-                    <Box className={classes.addresses}>
-                      <span className={classes.addressRow}>
-                        <AddressValue
-                          latitude={entry.item.startLat}
-                          longitude={entry.item.startLon}
-                          originalAddress={entry.item.startAddress}
-                        />
-                      </span>
-                      <span className={classes.addressRow}>
-                        <ArrowForwardIcon sx={{ fontSize: '0.75rem' }} />
-                        <AddressValue
-                          latitude={entry.item.endLat}
-                          longitude={entry.item.endLon}
-                          originalAddress={entry.item.endAddress}
-                        />
-                      </span>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card
-                  key={`stop-${entry.item.positionId}-${entry.item.startTime}`}
-                  elevation={0}
-                  className={classes.card}
-                >
-                  <CardContent>
-                    <Box className={classes.cardHeader}>
-                      <Box className={classes.cardTitle}>
-                        <LocalParkingIcon className={classes.stopIcon} fontSize="small" />
-                        <span>
-                          {dayjs(entry.item.startTime).format('HH:mm')}
-                          {' — '}
-                          {dayjs(entry.item.endTime).format('HH:mm')}
+                        {entry.item.averageSpeed > 0 && (
+                          <span>
+                            {t('reportAverageSpeed')}:{' '}
+                            <span className={classes.metricValue}>
+                              {formatSpeed(entry.item.averageSpeed, speedUnit, t)}
+                            </span>
+                          </span>
+                        )}
+                        {entry.item.maxSpeed > 0 && (
+                          <span>
+                            {t('reportMaximumSpeed')}:{' '}
+                            <span className={classes.metricValue}>
+                              {formatSpeed(entry.item.maxSpeed, speedUnit, t)}
+                            </span>
+                          </span>
+                        )}
+                        {entry.item.spentFuel > 0 && (
+                          <span>
+                            {t('reportSpentFuel')}:{' '}
+                            <span className={classes.metricValue}>
+                              {formatVolume(entry.item.spentFuel, volumeUnit, t)}
+                            </span>
+                          </span>
+                        )}
+                      </Box>
+                      <Box className={classes.addresses}>
+                        <span className={classes.addressRow}>
+                          <AddressValue
+                            latitude={entry.item.startLat}
+                            longitude={entry.item.startLon}
+                            originalAddress={entry.item.startAddress}
+                          />
+                        </span>
+                        <span className={classes.addressRow}>
+                          <ArrowForwardIcon sx={{ fontSize: '0.75rem' }} />
+                          <AddressValue
+                            latitude={entry.item.endLat}
+                            longitude={entry.item.endLon}
+                            originalAddress={entry.item.endAddress}
+                          />
                         </span>
                       </Box>
-                    </Box>
-                    <Box className={classes.metrics}>
-                      <span>
-                        {t('reportDuration')}:{' '}
-                        <span className={classes.metricValue}>
-                          {formatNumericHours(entry.item.duration, t)}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card
+                    key={`stop-${entry.item.positionId}-${entry.item.startTime}`}
+                    elevation={0}
+                    className={classes.card}
+                  >
+                    <CardContent>
+                      <Box className={classes.cardHeader}>
+                        <Box className={classes.cardTitle}>
+                          <LocalParkingIcon className={classes.stopIcon} fontSize="small" />
+                          <span>
+                            {dayjs(entry.item.startTime).format('HH:mm')}
+                            {' — '}
+                            {dayjs(entry.item.endTime).format('HH:mm')}
+                          </span>
+                        </Box>
+                      </Box>
+                      <Box className={classes.metrics}>
+                        <span>
+                          {t('reportDuration')}:{' '}
+                          <span className={classes.metricValue}>
+                            {formatNumericHours(entry.item.duration, t)}
+                          </span>
                         </span>
-                      </span>
-                    </Box>
-                    <Box className={classes.addresses}>
-                      <span className={classes.addressRow}>
-                        <AddressValue
-                          latitude={entry.item.latitude}
-                          longitude={entry.item.longitude}
-                          originalAddress={entry.item.address}
-                        />
-                      </span>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ),
-            )}
+                      </Box>
+                      <Box className={classes.addresses}>
+                        <span className={classes.addressRow}>
+                          <AddressValue
+                            latitude={entry.item.latitude}
+                            longitude={entry.item.longitude}
+                            originalAddress={entry.item.address}
+                          />
+                        </span>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ),
+              )}
+            </div>
           </div>
-        </div>
-        <div className={classes.mapContainer}>
-          <MapView>
-            <MapGeofence />
-            {route && (
-              <>
-                <MapRoutePath positions={route} />
-                <MapMarkers markers={createMarkers()} />
-                <MapCamera positions={route} />
-              </>
-            )}
-          </MapView>
-          <MapScale />
+          <div className={classes.mapContainer}>
+            <MapView>
+              <MapGeofence />
+              {route && (
+                <>
+                  <MapRoutePath positions={route} />
+                  <MapMarkers markers={createMarkers()} />
+                  <MapCamera positions={route} />
+                </>
+              )}
+            </MapView>
+            <MapScale />
+          </div>
         </div>
       </div>
-    </div>
+    </ViewLayout>
   );
 };
 

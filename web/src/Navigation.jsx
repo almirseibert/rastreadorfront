@@ -49,6 +49,7 @@ import CommandGroupPage from './settings/CommandGroupPage';
 import App from './App';
 import ChangeServerPage from './login/ChangeServerPage';
 import DevicesPage from './settings/DevicesPage';
+import CompaniesPage from './settings/CompaniesPage';
 import ScheduledPage from './reports/ScheduledPage';
 import DeviceConnectionsPage from './settings/DeviceConnectionsPage';
 import GroupConnectionsPage from './settings/GroupConnectionsPage';
@@ -133,6 +134,7 @@ const Navigation = () => {
         <Route path="emulator" element={<EmulatorPage />} />
 
         <Route path="settings">
+          <Route path="companies" element={<CompaniesPage />} />
           <Route path="accumulators/:deviceId" element={<AccumulatorsPage />} />
           <Route path="announcement" element={<AnnouncementPage />} />
           <Route path="calendars" element={<CalendarsPage />} />

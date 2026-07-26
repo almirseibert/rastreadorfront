@@ -58,5 +58,14 @@ export default [
       'react/prop-types': 'off',
     },
   },
+  {
+    // Testes e2e (Playwright) e sua configuração rodam em Node.
+    files: ['tests/**/*.{js,jsx}', 'playwright.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
   prettierRecommended,
 ];

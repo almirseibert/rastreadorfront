@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 export default (
   keyword,
   filter,
+  selectedGroup,
   filterSort,
   filterMap,
   positions,
@@ -31,6 +32,8 @@ export default (
         (device) =>
           !filter.groups.length || deviceGroups(device).some((id) => filter.groups.includes(id)),
       )
+      // Empresa/grupo selecionado na barra de topo (0 = todos)
+      .filter((device) => !selectedGroup || deviceGroups(device).includes(selectedGroup))
       .filter((device) => {
         const lowerCaseKeyword = keyword.toLowerCase();
         return [device.name, device.uniqueId, device.phone, device.model, device.contact].some(
@@ -60,6 +63,7 @@ export default (
   }, [
     keyword,
     filter,
+    selectedGroup,
     filterSort,
     filterMap,
     groups,
