@@ -190,6 +190,11 @@ Referência visual: screenshots reais do SigaSul (trilho de ícones à esquerda 
       Linha "Sem grupo" agrega dispositivos ainda não vinculados.
 - [x] Coluna "Empresa/Grupo" na lista de dispositivos já existia (`DevicesPage`, `groupParent`);
       filtro por grupo já disponível pelo seletor da barra de topo global.
+- [x] **Assistente de sub-usuário** (`web/src/settings/components/SubUserWizard.jsx`, ação por
+      empresa na `CompaniesPage`): cria um usuário comum (sem admin/`userLimit`) e concede acesso
+      só ao subconjunto escolhido — a empresa inteira (grupo) **ou** dispositivos específicos dela
+      (`POST /api/permissions` com `groupId`/`deviceId`). Best-effort: vincula o sub-usuário ao(s)
+      gestor(es) da empresa (`GET /api/users?groupId=` → `managedUserId`), tolerante a falha.
 
 ### Frente 2 — Refinamentos das fases
 - [x] **Arm/Disarm no `QuickCommands`**: novos atalhos `alarmArm` (escudo, âmbar) e `alarmDisarm`
@@ -200,8 +205,11 @@ Referência visual: screenshots reais do SigaSul (trilho de ícones à esquerda 
 - [x] **Compartilhamentos ativos com revogação** (`SharePage`): lista os usuários temporários com
       acesso ao dispositivo (`GET /api/users?deviceId=`), com validade e botão de revogar
       (`DELETE /api/users/:id`). Recarrega após criar/revogar.
-- [ ] **Timeline → ponto no mapa**: adiado. A `TimelinePage` é hoje só-lista; pôr eventos no mapa
-      exige redesenhar a página (lista + mapa, como Viagens). Melhor como mudança focada própria.
+- [x] **Timeline → ponto no mapa** (`TimelinePage` redesenhada em lista + mapa, estilo Viagens):
+      cada entrada com coordenada fica clicável e mostra o ponto no mapa (marcador + câmera).
+      Trips/paradas usam suas próprias coordenadas; eventos só trazem `positionId`, então as
+      posições são buscadas em lote (`GET /api/positions?id=...`). Marcadores por tipo
+      (`start-success` viagem, `default-neutral` parada, `default-info` evento).
 
 ### Frente 3 — Higiene e testes
 - [x] **Smoke test Playwright** (`web/tests/smoke.spec.js` + `web/playwright.config.js`): teste

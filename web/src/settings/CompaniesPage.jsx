@@ -5,11 +5,13 @@ import { Chip, Fab, Table, TableBody, TableCell, TableHead, TableRow } from '@mu
 import { makeStyles } from 'tss-react/mui';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
+import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import PageLayout from '../common/components/PageLayout';
 import SettingsMenu from './components/SettingsMenu';
 import CollectionActions from './components/CollectionActions';
 import CompanyWizard from './components/CompanyWizard';
+import SubUserWizard from './components/SubUserWizard';
 import { formatTime } from '../common/util/formatter';
 import { useCatch } from '../reactHelper';
 import { groupsActions } from '../store';
@@ -42,6 +44,7 @@ const CompaniesPage = () => {
   const devices = useSelector((state) => state.devices.items);
 
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [subUserGroup, setSubUserGroup] = useState(null);
 
   // Mantém a store de grupos em dia após criar/remover uma empresa (a visão geral lê da store).
   const refreshGroups = useCatch(async () => {
@@ -84,6 +87,13 @@ const CompaniesPage = () => {
     handler: (groupId) => navigate(`/settings/group/${groupId}/connections`),
   };
 
+  const actionSubUser = {
+    key: 'subuser',
+    title: t('companySubUser'),
+    icon: <PersonAddAlt1Icon fontSize="small" />,
+    handler: (groupId) => setSubUserGroup(groups[groupId]),
+  };
+
   return (
     <PageLayout menu={<SettingsMenu />} breadcrumbs={['settingsTitle', 'settingsCompanies']}>
       <Table className={settings.table}>
@@ -114,7 +124,7 @@ const CompaniesPage = () => {
                   editPath="/settings/group"
                   endpoint="groups"
                   setTimestamp={refreshGroups}
-                  customActions={[actionConnections]}
+                  customActions={[actionConnections, actionSubUser]}
                 />
               </TableCell>
             </TableRow>
@@ -139,6 +149,12 @@ const CompaniesPage = () => {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onCreated={() => setWizardOpen(false)}
+      />
+      <SubUserWizard
+        open={Boolean(subUserGroup)}
+        group={subUserGroup}
+        onClose={() => setSubUserGroup(null)}
+        onCreated={() => setSubUserGroup(null)}
       />
     </PageLayout>
   );

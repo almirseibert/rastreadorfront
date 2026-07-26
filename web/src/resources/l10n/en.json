@@ -246,6 +246,8 @@
     "companyManager": "Manager",
     "companyCreated": "Company created",
     "deviceShareActive": "Active shares",
+    "companySubUser": "Sub-user",
+    "companyGrantGroup": "Grant the whole company",
     "settingsDistanceUnit": "Distance Unit",
     "settingsAltitudeUnit": "Altitude Unit",
     "settingsSpeedUnit": "Speed Unit",

@@ -32,20 +32,37 @@ import { filterDevicesByGroup } from '../common/util/deviceGroups';
 import DateStrip from '../common/components/DateStrip';
 import { useEffectAsync } from '../reactHelper';
 import fetchOrThrow from '../common/util/fetchOrThrow';
+import MapView from '../map/core/MapView';
+import MapGeofence from '../map/MapGeofence';
+import MapMarkers from '../map/MapMarkers';
+import MapCamera from '../map/MapCamera';
+import MapScale from '../map/MapScale';
 
 const useStyles = makeStyles()((theme) => ({
   root: {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: theme.palette.background.default,
   },
-  toolbar: {
-    backgroundColor: theme.palette.background.paper,
-    borderBottom: `1px solid ${theme.palette.divider}`,
-  },
-  title: {
+  content: {
     flexGrow: 1,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'row',
+    [theme.breakpoints.down('sm')]: {
+      flexDirection: 'column-reverse',
+    },
+  },
+  drawer: {
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: theme.palette.background.default,
+    [theme.breakpoints.up('sm')]: {
+      width: theme.dimensions.drawerWidthDesktop,
+    },
+    [theme.breakpoints.down('sm')]: {
+      height: '55%',
+    },
   },
   filters: {
     display: 'flex',
@@ -59,9 +76,6 @@ const useStyles = makeStyles()((theme) => ({
     flexGrow: 1,
     overflowY: 'auto',
     padding: theme.spacing(1, 2, 2),
-    maxWidth: 600,
-    width: '100%',
-    alignSelf: 'center',
   },
   entry: {
     display: 'flex',
@@ -77,6 +91,20 @@ const useStyles = makeStyles()((theme) => ({
       width: 2,
       backgroundColor: theme.palette.divider,
     },
+  },
+  entryClickable: {
+    cursor: 'pointer',
+    borderRadius: 8,
+    marginLeft: theme.spacing(-1),
+    marginRight: theme.spacing(-1),
+    paddingLeft: theme.spacing(1),
+    paddingRight: theme.spacing(1),
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  entrySelected: {
+    backgroundColor: theme.palette.action.selected,
   },
   entryBody: {
     flex: 1,
@@ -102,6 +130,9 @@ const useStyles = makeStyles()((theme) => ({
     textAlign: 'center',
     color: theme.palette.text.secondary,
   },
+  mapContainer: {
+    flexGrow: 1,
+  },
 }));
 
 const eventIcon = (type) => {
@@ -115,8 +146,11 @@ const eventIcon = (type) => {
   return <NotificationsIcon fontSize="small" />;
 };
 
+const validCoordinate = (latitude, longitude) =>
+  Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0);
+
 const TimelinePage = () => {
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles();
   const t = useTranslation();
 
   const devices = useSelector((state) => state.devices.items);
@@ -143,9 +177,13 @@ const TimelinePage = () => {
   const [events, setEvents] = useState([]);
   const [trips, setTrips] = useState([]);
   const [stops, setStops] = useState([]);
+  const [eventPositions, setEventPositions] = useState({});
   const [loading, setLoading] = useState(false);
+  const [selectedKey, setSelectedKey] = useState(null);
 
   useEffectAsync(async () => {
+    setSelectedKey(null);
+    setEventPositions({});
     if (!deviceId) {
       setEvents([]);
       setTrips([]);
@@ -170,9 +208,26 @@ const TimelinePage = () => {
           headers: { Accept: 'application/json' },
         }),
       ]);
-      setEvents(await eventsResponse.json());
+      const loadedEvents = await eventsResponse.json();
+      setEvents(loadedEvents);
       setTrips(await tripsResponse.json());
       setStops(await stopsResponse.json());
+
+      // Eventos só trazem positionId; busca as posições para poder marcá-los no mapa.
+      const positionIds = [
+        ...new Set(loadedEvents.map((event) => event.positionId).filter(Boolean)),
+      ];
+      if (positionIds.length) {
+        const positionsQuery = new URLSearchParams();
+        positionIds.forEach((id) => positionsQuery.append('id', id));
+        const positionsResponse = await fetchOrThrow(`/api/positions?${positionsQuery.toString()}`);
+        const positions = await positionsResponse.json();
+        const byId = {};
+        positions.forEach((position) => {
+          byId[position.id] = { latitude: position.latitude, longitude: position.longitude };
+        });
+        setEventPositions(byId);
+      }
     } finally {
       setLoading(false);
     }
@@ -186,25 +241,35 @@ const TimelinePage = () => {
       },
     });
 
-  // Mescla eventos, viagens e paradas em uma linha do tempo única
+  // Mescla eventos, viagens e paradas numa linha do tempo única, cada entrada com a
+  // coordenada e a imagem de marcador para exibição no mapa quando selecionada.
   const timeline = useMemo(() => {
     const entries = [
       ...events
         // início/fim de viagem já são representados pelos cards de viagem
         .filter((event) => !['deviceMoving', 'deviceStopped'].includes(event.type))
-        .map((event) => ({
-          key: `event-${event.id}`,
-          time: event.eventTime,
-          icon: eventIcon(event.type),
-          color: 'neutral',
-          title: null,
-          event,
-        })),
+        .map((event) => {
+          const position = eventPositions[event.positionId];
+          return {
+            key: `event-${event.id}`,
+            time: event.eventTime,
+            icon: eventIcon(event.type),
+            color: 'neutral',
+            markerImage: 'default-info',
+            coordinate:
+              position && validCoordinate(position.latitude, position.longitude) ? position : null,
+            event,
+          };
+        }),
       ...trips.map((trip) => ({
         key: `trip-${trip.startPositionId}`,
         time: trip.startTime,
         icon: <RouteIcon fontSize="small" />,
         color: 'primary',
+        markerImage: 'start-success',
+        coordinate: validCoordinate(trip.startLat, trip.startLon)
+          ? { latitude: trip.startLat, longitude: trip.startLon }
+          : null,
         trip,
       })),
       ...stops.map((stop) => ({
@@ -212,94 +277,146 @@ const TimelinePage = () => {
         time: stop.startTime,
         icon: <LocalParkingIcon fontSize="small" />,
         color: 'neutral',
+        markerImage: 'default-neutral',
+        coordinate: validCoordinate(stop.latitude, stop.longitude)
+          ? { latitude: stop.latitude, longitude: stop.longitude }
+          : null,
         stop,
       })),
     ];
     return entries.sort((a, b) => new Date(a.time) - new Date(b.time));
-  }, [events, trips, stops]);
+  }, [events, trips, stops, eventPositions]);
+
+  const selectedEntry = timeline.find((entry) => entry.key === selectedKey);
+
+  const handleSelect = (entry) => {
+    if (!entry.coordinate) {
+      return;
+    }
+    setSelectedKey((current) => (current === entry.key ? null : entry.key));
+  };
 
   return (
     <ViewLayout title="timelineTitle">
       <div className={classes.root}>
-        <div className={classes.filters}>
-          <FormControl fullWidth size="small">
-            <InputLabel>{t('sharedDevice')}</InputLabel>
-            <Select
-              label={t('sharedDevice')}
-              value={deviceId}
-              onChange={(e) => setDeviceId(e.target.value)}
-            >
-              {deviceList.map((device) => (
-                <MenuItem key={device.id} value={device.id}>
-                  {device.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
-        </div>
-        {loading && <LinearProgress />}
-        <div className={classes.list}>
-          {!loading && timeline.length === 0 && (
-            <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
-          )}
-          {timeline.map((entry) => (
-            <div key={entry.key} className={classes.entry}>
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  bgcolor: entry.color === 'primary' ? 'primary.main' : 'neutral.main',
-                }}
-              >
-                {entry.icon}
-              </Avatar>
-              <div className={classes.entryBody}>
-                {entry.trip && (
-                  <>
-                    <Typography className={classes.entryTitle}>
-                      {t('reportTrips')}: {dayjs(entry.trip.startTime).format('HH:mm')}
-                      {' — '}
-                      {dayjs(entry.trip.endTime).format('HH:mm')}
-                    </Typography>
-                    <Typography className={classes.entryDetail}>
-                      {formatDistance(entry.trip.distance, distanceUnit, t)}
-                      {' · '}
-                      {formatNumericHours(entry.trip.duration, t)}
-                    </Typography>
-                    {entry.trip.endAddress && (
-                      <Typography className={classes.entryDetail}>
-                        {entry.trip.endAddress}
+        <div className={classes.content}>
+          <div className={classes.drawer}>
+            <div className={classes.filters}>
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('sharedDevice')}</InputLabel>
+                <Select
+                  label={t('sharedDevice')}
+                  value={deviceId}
+                  onChange={(e) => setDeviceId(e.target.value)}
+                >
+                  {deviceList.map((device) => (
+                    <MenuItem key={device.id} value={device.id}>
+                      {device.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <DateStrip selectedDate={selectedDate} onChange={setSelectedDate} />
+            </div>
+            {loading && <LinearProgress />}
+            <div className={classes.list}>
+              {!loading && timeline.length === 0 && (
+                <Typography className={classes.empty}>{t('sharedNoData')}</Typography>
+              )}
+              {timeline.map((entry) => (
+                <div
+                  key={entry.key}
+                  className={cx(
+                    classes.entry,
+                    entry.coordinate && classes.entryClickable,
+                    entry.key === selectedKey && classes.entrySelected,
+                  )}
+                  onClick={() => handleSelect(entry)}
+                >
+                  <Avatar
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: entry.color === 'primary' ? 'primary.main' : 'neutral.main',
+                    }}
+                  >
+                    {entry.icon}
+                  </Avatar>
+                  <div className={classes.entryBody}>
+                    {entry.trip && (
+                      <>
+                        <Typography className={classes.entryTitle}>
+                          {t('reportTrips')}: {dayjs(entry.trip.startTime).format('HH:mm')}
+                          {' — '}
+                          {dayjs(entry.trip.endTime).format('HH:mm')}
+                        </Typography>
+                        <Typography className={classes.entryDetail}>
+                          {formatDistance(entry.trip.distance, distanceUnit, t)}
+                          {' · '}
+                          {formatNumericHours(entry.trip.duration, t)}
+                        </Typography>
+                        {entry.trip.endAddress && (
+                          <Typography className={classes.entryDetail}>
+                            {entry.trip.endAddress}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                    {entry.stop && (
+                      <>
+                        <Typography className={classes.entryTitle}>
+                          {'Parada'}: {dayjs(entry.stop.startTime).format('HH:mm')}
+                          {' — '}
+                          {dayjs(entry.stop.endTime).format('HH:mm')}
+                        </Typography>
+                        <Typography className={classes.entryDetail}>
+                          {formatNumericHours(entry.stop.duration, t)}
+                        </Typography>
+                        {entry.stop.address && (
+                          <Typography className={classes.entryDetail}>
+                            {entry.stop.address}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                    {entry.event && (
+                      <Typography className={classes.entryTitle}>
+                        {formatEventTitle(entry.event)}
                       </Typography>
                     )}
-                  </>
-                )}
-                {entry.stop && (
-                  <>
-                    <Typography className={classes.entryTitle}>
-                      {'Parada'}: {dayjs(entry.stop.startTime).format('HH:mm')}
-                      {' — '}
-                      {dayjs(entry.stop.endTime).format('HH:mm')}
-                    </Typography>
-                    <Typography className={classes.entryDetail}>
-                      {formatNumericHours(entry.stop.duration, t)}
-                    </Typography>
-                    {entry.stop.address && (
-                      <Typography className={classes.entryDetail}>{entry.stop.address}</Typography>
-                    )}
-                  </>
-                )}
-                {entry.event && (
-                  <Typography className={classes.entryTitle}>
-                    {formatEventTitle(entry.event)}
+                  </div>
+                  <Typography className={classes.entryTime}>
+                    {dayjs(entry.time).format('HH:mm')}
                   </Typography>
-                )}
-              </div>
-              <Typography className={classes.entryTime}>
-                {dayjs(entry.time).format('HH:mm')}
-              </Typography>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className={classes.mapContainer}>
+            <MapView>
+              <MapGeofence />
+              {selectedEntry?.coordinate && (
+                <MapMarkers
+                  markers={[
+                    {
+                      latitude: selectedEntry.coordinate.latitude,
+                      longitude: selectedEntry.coordinate.longitude,
+                      image: selectedEntry.markerImage,
+                      title: dayjs(selectedEntry.time).format('HH:mm'),
+                    },
+                  ]}
+                  showTitles
+                />
+              )}
+              {selectedEntry?.coordinate && (
+                <MapCamera
+                  latitude={selectedEntry.coordinate.latitude}
+                  longitude={selectedEntry.coordinate.longitude}
+                />
+              )}
+            </MapView>
+            <MapScale />
+          </div>
         </div>
       </div>
     </ViewLayout>

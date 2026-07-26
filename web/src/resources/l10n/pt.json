@@ -246,6 +246,8 @@
     "companyManager": "Gestor",
     "companyCreated": "Empresa criada",
     "deviceShareActive": "Partilhas ativas",
+    "companySubUser": "Sub-utilizador",
+    "companyGrantGroup": "Conceder a empresa inteira",
     "settingsDistanceUnit": "Unidade de Distância",
     "settingsAltitudeUnit": "Unidade de Altitude",
     "settingsSpeedUnit": "Unidade de Velocidade",
