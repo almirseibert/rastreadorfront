@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import LoginIcon from '@mui/icons-material/Login';
 import LinkIcon from '@mui/icons-material/Link';
+import { useSelector } from 'react-redux';
 import { useCatch, useEffectAsync } from '../reactHelper';
 import { formatBoolean, formatTime } from '../common/util/formatter';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -24,6 +25,7 @@ import { useManager } from '../common/util/permissions';
 import SearchHeader, { filterByKeyword } from './components/SearchHeader';
 import useSettingsStyles from './common/useSettingsStyles';
 import fetchOrThrow from '../common/util/fetchOrThrow';
+import { PROFILE_ATTRIBUTE, parseProfiles, profileById } from '../common/util/useAccess';
 
 const UsersPage = () => {
   const { classes } = useSettingsStyles();
@@ -31,6 +33,11 @@ const UsersPage = () => {
   const t = useTranslation();
 
   const manager = useManager();
+  const server = useSelector((state) => state.session.server);
+  const profiles = parseProfiles(server);
+  // Perfil ("tipo de usuário") vem de user.attributes, por isso os atributos são necessários.
+  const profileName = (item) =>
+    profileById(profiles, item.attributes?.[PROFILE_ATTRIBUTE])?.name || '—';
 
   const [timestamp, setTimestamp] = useState(Date.now());
   const [items, setItems] = useState([]);
@@ -60,7 +67,7 @@ const UsersPage = () => {
   useEffectAsync(async () => {
     setLoading(true);
     try {
-      const response = await fetchOrThrow('/api/users?excludeAttributes=true');
+      const response = await fetchOrThrow('/api/users?excludeAttributes=false');
       setItems(await response.json());
     } finally {
       setLoading(false);
@@ -75,6 +82,7 @@ const UsersPage = () => {
           <TableRow>
             <TableCell>{t('sharedName')}</TableCell>
             <TableCell>{t('userEmail')}</TableCell>
+            <TableCell>{t('userProfile')}</TableCell>
             <TableCell>{t('userAdmin')}</TableCell>
             <TableCell>{t('sharedDisabled')}</TableCell>
             <TableCell>{t('userExpirationTime')}</TableCell>
@@ -90,6 +98,7 @@ const UsersPage = () => {
                 <TableRow key={item.id}>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.email}</TableCell>
+                  <TableCell>{profileName(item)}</TableCell>
                   <TableCell>{formatBoolean(item.administrator, t)}</TableCell>
                   <TableCell>{formatBoolean(item.disabled, t)}</TableCell>
                   <TableCell>{formatTime(item.expirationTime, 'date')}</TableCell>
@@ -107,12 +116,12 @@ const UsersPage = () => {
                 </TableRow>
               ))
           ) : (
-            <TableShimmer columns={6} endAction />
+            <TableShimmer columns={7} endAction />
           )}
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={6} align="right">
+            <TableCell colSpan={7} align="right">
               <FormControlLabel
                 control={
                   <Switch

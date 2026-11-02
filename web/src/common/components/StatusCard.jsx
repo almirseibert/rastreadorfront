@@ -39,6 +39,7 @@ import QuickCommands from './QuickCommands';
 import RemoveDialog from './RemoveDialog';
 import PositionValue from './PositionValue';
 import { useDeviceReadonly, useRestriction } from '../util/permissions';
+import useAccess from '../util/useAccess';
 import usePositionAttributes from '../attributes/usePositionAttributes';
 import { devicesActions } from '../../store';
 import { useCatch, useCatchCallback } from '../../reactHelper';
@@ -161,7 +162,11 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
   const t = useTranslation();
 
   const readonly = useRestriction('readonly');
-  const deviceReadonly = useDeviceReadonly();
+  // Flags nativas do Traccar + nível de edição da página "Veículos" no perfil de acesso.
+  // Flags nativas do Traccar + nível de edição da página "Veículos" no perfil de acesso.
+  const nativeDeviceReadonly = useDeviceReadonly();
+  const { canEdit } = useAccess();
+  const deviceReadonly = nativeDeviceReadonly || !canEdit('devices');
 
   const shareDisabled = useSelector((state) => state.session.server.attributes.disableShare);
   const user = useSelector((state) => state.session.user);

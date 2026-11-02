@@ -19,12 +19,12 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const RemoveDialog = ({ open, endpoint, itemId, onResult }) => {
+const RemoveDialog = ({ open, endpoint, itemId, onResult, baseUrl = '/api' }) => {
   const { classes } = useStyles();
   const t = useTranslation();
 
   const handleRemove = useCatch(async () => {
-    await fetchOrThrow(`/api/${endpoint}/${itemId}`, { method: 'DELETE' });
+    await fetchOrThrow(`${baseUrl}/${endpoint}/${itemId}`, { method: 'DELETE' });
     onResult(true);
   });
 

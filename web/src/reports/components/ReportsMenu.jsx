@@ -14,15 +14,14 @@ import NotesIcon from '@mui/icons-material/Notes';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from '../../common/components/LocalizationProvider';
-import { useAdministrator, useRestriction } from '../../common/util/permissions';
+import useAccess from '../../common/util/useAccess';
 import MenuItem from '../../common/components/MenuItem';
 
 const ReportsMenu = () => {
   const t = useTranslation();
   const location = useLocation();
 
-  const admin = useAdministrator();
-  const readonly = useRestriction('readonly');
+  const { canView } = useAccess();
 
   const buildLink = (path) => {
     const sourceParams = new URLSearchParams(location.search);
@@ -45,92 +44,122 @@ const ReportsMenu = () => {
     return search ? `${path}?${search}` : path;
   };
 
+  const secondary = [
+    canView('reports.logs') && (
+      <MenuItem
+        key="logs"
+        title={t('sharedLogs')}
+        link="/reports/logs"
+        icon={<NotesIcon />}
+        selected={location.pathname === '/reports/logs'}
+      />
+    ),
+    canView('reports.scheduled') && (
+      <MenuItem
+        key="scheduled"
+        title={t('reportScheduled')}
+        link="/reports/scheduled"
+        icon={<EventRepeatIcon />}
+        selected={location.pathname === '/reports/scheduled'}
+      />
+    ),
+    canView('reports.statistics') && (
+      <MenuItem
+        key="statistics"
+        title={t('statisticsTitle')}
+        link="/reports/statistics"
+        icon={<BarChartIcon />}
+        selected={location.pathname === '/reports/statistics'}
+      />
+    ),
+    canView('reports.audit') && (
+      <MenuItem
+        key="audit"
+        title={t('reportAudit')}
+        link="/reports/audit"
+        icon={<VerifiedUserIcon />}
+        selected={location.pathname === '/reports/audit'}
+      />
+    ),
+  ].filter(Boolean);
+
   return (
     <>
       <List>
-        <MenuItem
-          title={t('reportCombined')}
-          link={buildLink('/reports/combined')}
-          icon={<StarIcon />}
-          selected={location.pathname === '/reports/combined'}
-        />
-        <MenuItem
-          title={t('reportEvents')}
-          link={buildLink('/reports/events')}
-          icon={<NotificationsActiveIcon />}
-          selected={location.pathname === '/reports/events'}
-        />
-        <MenuItem
-          title={t('sharedGeofences')}
-          link={buildLink('/reports/geofences')}
-          icon={<PlaceIcon />}
-          selected={location.pathname === '/reports/geofences'}
-        />
-        <MenuItem
-          title={t('reportTrips')}
-          link={buildLink('/reports/trips')}
-          icon={<PlayCircleFilledIcon />}
-          selected={location.pathname === '/reports/trips'}
-        />
-        <MenuItem
-          title={t('reportStops')}
-          link={buildLink('/reports/stops')}
-          icon={<PauseCircleFilledIcon />}
-          selected={location.pathname === '/reports/stops'}
-        />
-        <MenuItem
-          title={t('reportSummary')}
-          link={buildLink('/reports/summary')}
-          icon={<FormatListBulletedIcon />}
-          selected={location.pathname === '/reports/summary'}
-        />
-        <MenuItem
-          title={t('reportChart')}
-          link={buildLink('/reports/chart')}
-          icon={<TrendingUpIcon />}
-          selected={location.pathname === '/reports/chart'}
-        />
-        <MenuItem title={t('reportReplay')} link={buildLink('/replay')} icon={<RouteIcon />} />
-        <MenuItem
-          title={t('reportPositions')}
-          link={buildLink('/reports/route')}
-          icon={<TimelineIcon />}
-          selected={location.pathname === '/reports/route'}
-        />
-      </List>
-      <Divider />
-      <List>
-        <MenuItem
-          title={t('sharedLogs')}
-          link="/reports/logs"
-          icon={<NotesIcon />}
-          selected={location.pathname === '/reports/logs'}
-        />
-        {!readonly && (
+        {canView('reports.combined') && (
           <MenuItem
-            title={t('reportScheduled')}
-            link="/reports/scheduled"
-            icon={<EventRepeatIcon />}
-            selected={location.pathname === '/reports/scheduled'}
+            title={t('reportCombined')}
+            link={buildLink('/reports/combined')}
+            icon={<StarIcon />}
+            selected={location.pathname === '/reports/combined'}
           />
         )}
-        {admin && (
+        {canView('reports.events') && (
           <MenuItem
-            title={t('statisticsTitle')}
-            link="/reports/statistics"
-            icon={<BarChartIcon />}
-            selected={location.pathname === '/reports/statistics'}
+            title={t('reportEvents')}
+            link={buildLink('/reports/events')}
+            icon={<NotificationsActiveIcon />}
+            selected={location.pathname === '/reports/events'}
           />
         )}
-        {admin && (
+        {canView('reports.geofences') && (
           <MenuItem
-            title={t('reportAudit')}
-            link="/reports/audit"
-            icon={<VerifiedUserIcon />}
-            selected={location.pathname === '/reports/audit'}
+            title={t('sharedGeofences')}
+            link={buildLink('/reports/geofences')}
+            icon={<PlaceIcon />}
+            selected={location.pathname === '/reports/geofences'}
+          />
+        )}
+        {canView('reports.trips') && (
+          <MenuItem
+            title={t('reportTrips')}
+            link={buildLink('/reports/trips')}
+            icon={<PlayCircleFilledIcon />}
+            selected={location.pathname === '/reports/trips'}
+          />
+        )}
+        {canView('reports.stops') && (
+          <MenuItem
+            title={t('reportStops')}
+            link={buildLink('/reports/stops')}
+            icon={<PauseCircleFilledIcon />}
+            selected={location.pathname === '/reports/stops'}
+          />
+        )}
+        {canView('reports.summary') && (
+          <MenuItem
+            title={t('reportSummary')}
+            link={buildLink('/reports/summary')}
+            icon={<FormatListBulletedIcon />}
+            selected={location.pathname === '/reports/summary'}
+          />
+        )}
+        {canView('reports.chart') && (
+          <MenuItem
+            title={t('reportChart')}
+            link={buildLink('/reports/chart')}
+            icon={<TrendingUpIcon />}
+            selected={location.pathname === '/reports/chart'}
+          />
+        )}
+        {canView('reports.replay') && (
+          <MenuItem title={t('reportReplay')} link={buildLink('/replay')} icon={<RouteIcon />} />
+        )}
+        {canView('reports.route') && (
+          <MenuItem
+            title={t('reportPositions')}
+            link={buildLink('/reports/route')}
+            icon={<TimelineIcon />}
+            selected={location.pathname === '/reports/route'}
           />
         )}
       </List>
+      {secondary.length > 0 && (
+        <>
+          <Divider />
+          <List>{secondary}</List>
+        </>
+      )}
     </>
   );
 };

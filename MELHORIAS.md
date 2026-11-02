@@ -1,7 +1,7 @@
 # Argos Track — Análise e Roadmap de Melhorias
 
 > Documento vivo. Atualize a cada ciclo de trabalho.
-> Última atualização: 2026-07-26
+> Última atualização: 2026-11-02
 
 ## 1. Estado atual
 
@@ -9,7 +9,8 @@
 |---|---|
 | Frontend | Fork do [traccar-web](https://github.com/traccar/traccar-web) **6.12.2** — React 19, Vite 7, MUI 7, MapLibre GL 5, Redux Toolkit, PWA |
 | Backend | Imagem oficial `traccar/traccar:latest` (Docker multi-stage no `Dockerfile`) |
-| Banco | MySQL no EasyPanel (schema padrão do Traccar) |
+| Serviço auxiliar | **`argos-api/`** — ordens de instalação, checklists e fotos (Node 20 + Express, imagem própria) |
+| Banco | MySQL no EasyPanel (schema padrão do Traccar + tabelas `argos_*`) |
 | Deploy | EasyPanel — build a partir deste repositório |
 | Marca | "Argos Track" (visual originalmente copiado de referência "SigaSul") |
 | Decisão de arquitetura | **Backend permanece Traccar** (sem migração para flespi/Gurtam) |
@@ -17,6 +18,106 @@
 A referência de produto/UX é o **Ruhavik** (Gurtam / GPS-Trace): interface limpa,
 cards de unidades com status, viagens (trips) com cards e playback, timeline de eventos
 do dia, geofences com notificações, compartilhamento de localização e comandos remotos.
+
+## 2.5 Ciclo 2026-11-02 — perfis de acesso e módulo do instalador
+
+### Perfis de acesso ("tipos de usuário") com ver × editar por página
+
+Antes deste ciclo o Traccar só oferecia flags grosseiros (`administrator`, `readonly`,
+`deviceReadonly`, `disableReports`, `ui.disable*`) e **nenhuma rota tinha guarda**: esconder um
+item de menu não impedia o acesso digitando a URL.
+
+- [x] **Registro central de páginas** (`web/src/common/util/pages.js`): cada página tem `key`,
+      `group` (operação/configurações/relatórios), rota + rotas filhas, rótulo i18n e as marcas
+      `editable`, `adminOnly`, `managerOnly`, `always`. Acabou a duplicação das listas de
+      navegação entre `AppSidebar`, `MainTopBar`, `BottomMenu`, `SettingsMenu` e `ReportsMenu`.
+- [x] **Hook `useAccess`** (`web/src/common/util/useAccess.js`): resolve, por página, o nível
+      `oculto | leitura | editável`. Admin libera tudo; usuário **sem perfil mantém o
+      comportamento antigo** (compatibilidade); as flags nativas do Traccar continuam valendo
+      **em conjunto** (AND), nunca sendo afrouxadas.
+- [x] **Armazenamento sem tocar no backend**: catálogo de perfis em
+      `server.attributes['argos.profiles']` (legível por qualquer sessão, gravável só por admin
+      via `PUT /api/server`); atribuição em `user.attributes['argos.profile']`; exceções por
+      usuário em `argos.pagesExtra` / `argos.pagesDeny` — é o "dentro de um tipo de usuário
+      adicionar certa página se precisar".
+- [x] **Guarda de rota** (`web/src/common/components/RequirePage.jsx`): todas as rotas de
+      `Navigation.jsx` passam por ela, com chave explícita. Sem permissão, redireciona para a
+      primeira página liberada e avisa no snackbar. `/settings/user/:id` tem `selfParam`, para
+      a conta do próprio usuário nunca ser bloqueada.
+- [x] **Somente leitura de verdade**: `CollectionFab` (esconde o FAB), `CollectionActions`
+      (editar/excluir), `EditItemView` (desabilita Salvar + aviso), `MainToolbar` (criar
+      dispositivo) e `StatusCard` (editar/remover) derivam o nível da página atual.
+- [x] **Administração**: `settings/ProfilesPage.jsx` + `components/ProfileDialog.jsx`
+      (matriz de páginas com três estados e atalhos por seção), accordion "Acesso às páginas"
+      no `UserPage`, coluna "Tipo de usuário" na `UsersPage`, seleção de perfil no
+      `CompanyWizard`/`SubUserWizard` e **seeds** prontos: Cliente, Gestor de frota, Instalador
+      e Somente consulta.
+- [x] **Testado em navegador** (`web/tests/access.spec.js`, backend mockado por `page.route`):
+      o trilho mostra só as páginas concedidas e `/reports/combined` redireciona.
+
+> **Limite honesto:** isto é camada de UI. Com o backend Traccar oficial, a API continua
+> respondendo a qualquer endpoint a que o usuário tenha direito nativo. O isolamento que
+> importa — *o cliente só vê os veículos dele* — é garantido pelo backend (permissões de
+> device/grupo) e já funcionava.
+
+### Módulo do instalador (`argos-api` + telas)
+
+O Traccar puro não serve para laudo de instalação: `POST /api/devices/{id}/image` grava **uma
+única** imagem de 500 KB com nome fixo (`device.<ext>`) e `attributes` é `VARCHAR(4000)`.
+
+- [x] **Serviço `argos-api/`** (Node 20 + Express + mysql2 + multer + sharp, Dockerfile
+      próprio, `README.md` com o deploy no EasyPanel): ordens, checklists, fotos (várias por
+      ordem, com miniatura, ETag e 304), laudo HTML imprimível e trilha de auditoria.
+      - **Sem usuários próprios**: a identidade vem de `GET /api/session` do Traccar, repassando
+        o cookie do chamador (cache de 30 s), e a visibilidade do dispositivo de
+        `GET /api/devices?id=`. O grafo de permissões do Traccar nunca é reimplementado.
+      - **Mesmo MySQL, prefixo `argos_`, nenhuma FK física para `tc_*`** — uma FK externa
+        abortaria o Liquibase do Traccar num upgrade da imagem oficial e travaria o boot.
+      - **Máquina de estados**: `rascunho → em_andamento → concluida → aprovada | reprovada`,
+        com retrabalho a partir de reprovada. Concluir exige checklist obrigatório respondido,
+        foto em todos os slots obrigatórios, dispositivo vinculado e posição recebida;
+        aprovar/reprovar é só de admin/gestor (reprovar exige comentário).
+      - **Laudo em HTML, não PDF no servidor**: puppeteer custaria ~400 MB de imagem e ~300 MB
+        de RAM por render, derrubando um container pequeno; o navegador gera o PDF ao imprimir.
+- [x] **Telas** (`web/src/install/`), mobile-first: wizard de 5 passos — rastreador (IMEI
+      digitado **ou lido pela câmera**, reusando o `Scanner` que já existia em
+      `ChangeServerPage`), equipamento (placa, marca, modelo, ano, cor, odômetro, local,
+      bloqueio/sirene/pânico), checklist com `ok / N-A / problema` (observação obrigatória no
+      problema), fotos por slot com compressão no próprio celular e testes finais (posição
+      recebida, bloqueio via `QuickCommands`, assinatura em canvas).
+- [x] **Admin**: lista de ordens com filtros, revisão com galeria de fotos, aprovar/reprovar e
+      link do laudo; editor de **modelos de checklist** (com um modelo genérico já semeado).
+- [x] **Infra do frontend**: proxy `/argos` no `vite.config.js`, `/argos` no
+      `navigateFallbackDenylist` do PWA (sem isso o service worker serviria `index.html` nas
+      URLs de foto), `/install/order` em `bareLayoutPaths` e `baseUrl` opcional no
+      `RemoveDialog`.
+
+### Higiene
+
+- [x] **Fallback de tradução para inglês** no `LocalizationProvider`: as chaves criadas pelo
+      fork só existem em `en`/`pt`/`pt_BR` e, sem fallback, um usuário em espanhol via a string
+      `undefined` na tela. **111 chaves novas** nos três idiomas.
+- [x] `DeviceRow`: `km/h` fixo → unidade da preferência do usuário; "Motorista não
+      identificado" → i18n (`deviceNoDriver`).
+- [x] `SharePage`: mensagem de WhatsApp em PT hardcoded → i18n (`deviceShareMessage`).
+- [x] **Tokens de raio e sombra** (`dimensions.radiusCard/radiusControl/shadowRail/shadowPanel`):
+      as sombras fixas de `App.jsx` e `MainPage.jsx` e os `borderRadius: 12` soltos saíram dos
+      componentes.
+- [x] `playwright.config.js` aceita `PW_CHROMIUM_PATH` (usa um Chromium já instalado em
+      CI/container em vez de baixar outro).
+
+### Pendências deste ciclo
+
+- [ ] **UX fiel ao SigaSul**: o host `rastreamento.sigasul.com.br` é negado pela política de
+      rede do ambiente de desenvolvimento (gateway responde 403 ao CONNECT), então o painel de
+      referência não pôde ser mapeado. Liberar o host em *Network access → Allowed domains* do
+      ambiente, ou anexar screenshots, e calibrar cores/alturas/posições a partir disso.
+- [ ] **Validar o `argos-api` contra um MySQL real**: o container de desenvolvimento não tem
+      MySQL nem Docker, então as migrações e as consultas não foram executadas de fato. O
+      serviço sobe e as camadas de sessão/CSRF respondem certo (`/health` 503 sem banco,
+      `/me` 401 sem sessão, 403 sem `X-Argos-Client`).
+- [ ] `web/tests/smoke.spec.js` depende do Traccar de produção pelo proxy do Vite e falha neste
+      ambiente por DNS bloqueado (não é regressão).
 
 ## 2. Feito neste ciclo (2026-07-19)
 

@@ -15,4 +15,10 @@ export default {
   popupImageHeight: 144,
   cardContentMaxHeight: '40vh',
   qrCodeSize: 192,
+  // Raios e sombras da marca: antes eram literais repetidos nos componentes
+  // (borderRadius 8/12 e boxShadow rgba fixo em App.jsx e MainPage.jsx).
+  radiusCard: 12,
+  radiusControl: 8,
+  shadowRail: '2px 0 10px rgba(0,0,0,0.3)',
+  shadowPanel: '0 4px 20px rgba(0,0,0,0.18)',
 };

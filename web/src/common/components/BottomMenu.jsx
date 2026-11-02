@@ -16,9 +16,11 @@ import MapIcon from '@mui/icons-material/Map';
 import RouteIcon from '@mui/icons-material/Route';
 import PersonIcon from '@mui/icons-material/Person';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import BuildIcon from '@mui/icons-material/Build';
 
 import { useTranslation } from './LocalizationProvider';
 import { useRestriction } from '../util/permissions';
+import useAccess from '../util/useAccess';
 import useNavigation from './useNavigation';
 
 // Menu inferior usado apenas no mobile; no desktop a navegação fica na AppSidebar.
@@ -26,8 +28,13 @@ const BottomMenu = () => {
   const t = useTranslation();
 
   const readonly = useRestriction('readonly');
-  const disableReports = useRestriction('disableReports');
+  const { canView, allowedPages } = useAccess();
   const socket = useSelector((state) => state.session.socket);
+
+  const anyReport = allowedPages.some((page) => page.group === 'reports');
+  const anySettings = allowedPages.some(
+    (page) => page.group === 'settings' && page.key !== 'account',
+  );
 
   const { currentSelection, handleSelection, handleAccount, handleLogout } = useNavigation();
 
@@ -44,32 +51,37 @@ const BottomMenu = () => {
   return (
     <Paper square elevation={3}>
       <BottomNavigation value={currentSelection()} onChange={onChange} showLabels>
-        <BottomNavigationAction
-          label={t('mapTitle')}
-          icon={
-            <Badge color="error" variant="dot" overlap="circular" invisible={socket !== false}>
-              <MapIcon />
-            </Badge>
-          }
-          value="map"
-        />
-        <BottomNavigationAction
-          label={t('reportTrips')}
-          icon={<RouteIcon />}
-          value="trips"
-        />
-        {!disableReports && (
+        {canView('map') && (
+          <BottomNavigationAction
+            label={t('mapTitle')}
+            icon={
+              <Badge color="error" variant="dot" overlap="circular" invisible={socket !== false}>
+                <MapIcon />
+              </Badge>
+            }
+            value="map"
+          />
+        )}
+        {canView('install') && (
+          <BottomNavigationAction label={t('installTitle')} icon={<BuildIcon />} value="install" />
+        )}
+        {canView('trips') && (
+          <BottomNavigationAction label={t('reportTrips')} icon={<RouteIcon />} value="trips" />
+        )}
+        {anyReport && (
           <BottomNavigationAction
             label={t('reportTitle')}
             icon={<DescriptionIcon />}
             value="reports"
           />
         )}
-        <BottomNavigationAction
-          label={t('settingsTitle')}
-          icon={<SettingsIcon />}
-          value="settings"
-        />
+        {anySettings && (
+          <BottomNavigationAction
+            label={t('settingsTitle')}
+            icon={<SettingsIcon />}
+            value="settings"
+          />
+        )}
         {readonly ? (
           <BottomNavigationAction
             label={t('loginLogout')}

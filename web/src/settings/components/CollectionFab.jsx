@@ -3,6 +3,7 @@ import { makeStyles } from 'tss-react/mui';
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
 import { useRestriction } from '../../common/util/permissions';
+import { usePageEditable } from '../../common/util/useAccess';
 
 const useStyles = makeStyles()((theme) => ({
   fab: {
@@ -20,8 +21,9 @@ const CollectionFab = ({ editPath, disabled }) => {
   const navigate = useNavigate();
 
   const readonly = useRestriction('readonly');
+  const editable = usePageEditable();
 
-  if (!readonly && !disabled) {
+  if (!readonly && editable && !disabled) {
     return (
       <div className={classes.fab}>
         <Fab size="medium" color="primary" onClick={() => navigate(editPath)}>
