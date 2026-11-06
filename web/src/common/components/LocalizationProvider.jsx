@@ -243,7 +243,10 @@ export const useLocalization = () => useContext(LocalizationContext);
 export const useTranslation = () => {
   const context = useContext(LocalizationContext);
   const { data } = context.languages[context.language];
-  return useMemo(() => (key) => data[key], [data]);
+  // Fallback para inglês: as chaves criadas por este fork (Painel, Linha do Tempo, Empresas,
+  // Instalação, perfis de acesso...) só existem em en/pt/pt_BR, e sem fallback um usuário em
+  // espanhol veria a string "undefined" na tela.
+  return useMemo(() => (key) => (data[key] !== undefined ? data[key] : en[key]), [data]);
 };
 
 export const useTranslationKeys = (predicate) => {

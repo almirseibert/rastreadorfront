@@ -16,3 +16,9 @@ traccar.local.xml
 web/test-results/
 web/playwright-report/
 web/.playwright/
+
+# Variáveis locais do docker-compose (senhas) — nunca versionar
+.env
+
+# Área de trabalho da bateria do argos-api (cookies de sessão, imagens de teste)
+argos-api/test/.work/

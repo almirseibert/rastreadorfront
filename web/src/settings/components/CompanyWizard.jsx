@@ -13,6 +13,8 @@ import { useTranslation } from '../../common/components/LocalizationProvider';
 import { useCatchCallback } from '../../reactHelper';
 import { devicesActions, groupsActions } from '../../store';
 import fetchOrThrow from '../../common/util/fetchOrThrow';
+import ProfileSelect from './ProfileSelect';
+import { PROFILE_ATTRIBUTE, defaultProfile, parseProfiles } from '../../common/util/useAccess';
 
 // Assistente "Nova empresa": num único passo cria o gestor (usuário com userLimit),
 // o grupo (empresa), vincula os dispositivos escolhidos ao grupo e liga o grupo ao gestor.
@@ -21,6 +23,8 @@ const CompanyWizard = ({ open, onClose, onCreated }) => {
   const dispatch = useDispatch();
 
   const devices = useSelector((state) => state.devices.items);
+  const server = useSelector((state) => state.session.server);
+  const profiles = useMemo(() => parseProfiles(server), [server]);
   const deviceList = useMemo(
     () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
     [devices],
@@ -30,6 +34,10 @@ const CompanyWizard = ({ open, onClose, onCreated }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedDevices, setSelectedDevices] = useState([]);
+  // Perfil do gestor: usa 'gestor-frota' quando existir, senão o perfil marcado como padrão.
+  const [profileId, setProfileId] = useState(
+    () => profiles.find((it) => it.id === 'gestor-frota')?.id || defaultProfile(profiles)?.id || '',
+  );
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -54,7 +62,7 @@ const CompanyWizard = ({ open, onClose, onCreated }) => {
           password,
           userLimit: -1,
           deviceLimit: -1,
-          attributes: {},
+          attributes: profileId ? { [PROFILE_ATTRIBUTE]: profileId } : {},
         }),
       });
       const user = await userResponse.json();
@@ -98,7 +106,7 @@ const CompanyWizard = ({ open, onClose, onCreated }) => {
     } finally {
       setSaving(false);
     }
-  }, [name, email, password, selectedDevices, dispatch, onCreated]);
+  }, [name, email, password, profileId, selectedDevices, dispatch, onCreated]);
 
   const handleClose = () => {
     reset();
@@ -129,6 +137,11 @@ const CompanyWizard = ({ open, onClose, onCreated }) => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           fullWidth
+        />
+        <ProfileSelect
+          value={profileId}
+          onChange={setProfileId}
+          label={`${t('companyManager')} — ${t('userProfile')}`}
         />
         <Autocomplete
           multiple

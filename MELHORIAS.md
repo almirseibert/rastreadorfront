@@ -1,7 +1,7 @@
 # Argos Track — Análise e Roadmap de Melhorias
 
 > Documento vivo. Atualize a cada ciclo de trabalho.
-> Última atualização: 2026-07-26
+> Última atualização: 2026-11-06
 
 ## 1. Estado atual
 
@@ -9,7 +9,8 @@
 |---|---|
 | Frontend | Fork do [traccar-web](https://github.com/traccar/traccar-web) **6.12.2** — React 19, Vite 7, MUI 7, MapLibre GL 5, Redux Toolkit, PWA |
 | Backend | Imagem oficial `traccar/traccar:latest` (Docker multi-stage no `Dockerfile`) |
-| Banco | MySQL no EasyPanel (schema padrão do Traccar) |
+| Serviço auxiliar | **`argos-api/`** — ordens de instalação, checklists e fotos (Node 20 + Express, imagem própria) |
+| Banco | MySQL no EasyPanel (schema padrão do Traccar + tabelas `argos_*`) |
 | Deploy | EasyPanel — build a partir deste repositório |
 | Marca | "Argos Track" (visual originalmente copiado de referência "SigaSul") |
 | Decisão de arquitetura | **Backend permanece Traccar** (sem migração para flespi/Gurtam) |
@@ -18,6 +19,183 @@ A referência de produto/UX é o **Ruhavik** (Gurtam / GPS-Trace): interface lim
 cards de unidades com status, viagens (trips) com cards e playback, timeline de eventos
 do dia, geofences com notificações, compartilhamento de localização e comandos remotos.
 
+## 2.5 Ciclo 2026-11-02 — perfis de acesso e módulo do instalador
+
+### Perfis de acesso ("tipos de usuário") com ver × editar por página
+
+Antes deste ciclo o Traccar só oferecia flags grosseiros (`administrator`, `readonly`,
+`deviceReadonly`, `disableReports`, `ui.disable*`) e **nenhuma rota tinha guarda**: esconder um
+item de menu não impedia o acesso digitando a URL.
+
+- [x] **Registro central de páginas** (`web/src/common/util/pages.js`): cada página tem `key`,
+      `group` (operação/configurações/relatórios), rota + rotas filhas, rótulo i18n e as marcas
+      `editable`, `adminOnly`, `managerOnly`, `always`. Acabou a duplicação das listas de
+      navegação entre `AppSidebar`, `MainTopBar`, `BottomMenu`, `SettingsMenu` e `ReportsMenu`.
+- [x] **Hook `useAccess`** (`web/src/common/util/useAccess.js`): resolve, por página, o nível
+      `oculto | leitura | editável`. Admin libera tudo; usuário **sem perfil mantém o
+      comportamento antigo** (compatibilidade); as flags nativas do Traccar continuam valendo
+      **em conjunto** (AND), nunca sendo afrouxadas.
+- [x] **Armazenamento sem tocar no backend**: catálogo de perfis em
+      `server.attributes['argos.profiles']` (legível por qualquer sessão, gravável só por admin
+      via `PUT /api/server`); atribuição em `user.attributes['argos.profile']`; exceções por
+      usuário em `argos.pagesExtra` / `argos.pagesDeny` — é o "dentro de um tipo de usuário
+      adicionar certa página se precisar".
+- [x] **Guarda de rota** (`web/src/common/components/RequirePage.jsx`): todas as rotas de
+      `Navigation.jsx` passam por ela, com chave explícita. Sem permissão, redireciona para a
+      primeira página liberada e avisa no snackbar. `/settings/user/:id` tem `selfParam`, para
+      a conta do próprio usuário nunca ser bloqueada.
+- [x] **Somente leitura de verdade**: `CollectionFab` (esconde o FAB), `CollectionActions`
+      (editar/excluir), `EditItemView` (desabilita Salvar + aviso), `MainToolbar` (criar
+      dispositivo) e `StatusCard` (editar/remover) derivam o nível da página atual.
+- [x] **Administração**: `settings/ProfilesPage.jsx` + `components/ProfileDialog.jsx`
+      (matriz de páginas com três estados e atalhos por seção), accordion "Acesso às páginas"
+      no `UserPage`, coluna "Tipo de usuário" na `UsersPage`, seleção de perfil no
+      `CompanyWizard`/`SubUserWizard` e **seeds** prontos: Cliente, Gestor de frota, Instalador
+      e Somente consulta.
+- [x] **Testado em navegador** (`web/tests/access.spec.js`, backend mockado por `page.route`):
+      o trilho mostra só as páginas concedidas e `/reports/combined` redireciona.
+
+> **Limite honesto:** isto é camada de UI. Com o backend Traccar oficial, a API continua
+> respondendo a qualquer endpoint a que o usuário tenha direito nativo. O isolamento que
+> importa — *o cliente só vê os veículos dele* — é garantido pelo backend (permissões de
+> device/grupo) e já funcionava.
+
+### Módulo do instalador (`argos-api` + telas)
+
+O Traccar puro não serve para laudo de instalação: `POST /api/devices/{id}/image` grava **uma
+única** imagem de 500 KB com nome fixo (`device.<ext>`) e `attributes` é `VARCHAR(4000)`.
+
+- [x] **Serviço `argos-api/`** (Node 20 + Express + mysql2 + multer + sharp, Dockerfile
+      próprio, `README.md` com o deploy no EasyPanel): ordens, checklists, fotos (várias por
+      ordem, com miniatura, ETag e 304), laudo HTML imprimível e trilha de auditoria.
+      - **Sem usuários próprios**: a identidade vem de `GET /api/session` do Traccar, repassando
+        o cookie do chamador (cache de 30 s), e a visibilidade do dispositivo de
+        `GET /api/devices?id=`. O grafo de permissões do Traccar nunca é reimplementado.
+      - **Mesmo MySQL, prefixo `argos_`, nenhuma FK física para `tc_*`** — uma FK externa
+        abortaria o Liquibase do Traccar num upgrade da imagem oficial e travaria o boot.
+      - **Máquina de estados**: `rascunho → em_andamento → concluida → aprovada | reprovada`,
+        com retrabalho a partir de reprovada. Concluir exige checklist obrigatório respondido,
+        foto em todos os slots obrigatórios, dispositivo vinculado e posição recebida;
+        aprovar/reprovar é só de admin/gestor (reprovar exige comentário).
+      - **Laudo em HTML, não PDF no servidor**: puppeteer custaria ~400 MB de imagem e ~300 MB
+        de RAM por render, derrubando um container pequeno; o navegador gera o PDF ao imprimir.
+- [x] **Telas** (`web/src/install/`), mobile-first: wizard de 5 passos — rastreador (IMEI
+      digitado **ou lido pela câmera**, reusando o `Scanner` que já existia em
+      `ChangeServerPage`), equipamento (placa, marca, modelo, ano, cor, odômetro, local,
+      bloqueio/sirene/pânico), checklist com `ok / N-A / problema` (observação obrigatória no
+      problema), fotos por slot com compressão no próprio celular e testes finais (posição
+      recebida, bloqueio via `QuickCommands`, assinatura em canvas).
+- [x] **Admin**: lista de ordens com filtros, revisão com galeria de fotos, aprovar/reprovar e
+      link do laudo; editor de **modelos de checklist** (com um modelo genérico já semeado).
+- [x] **Infra do frontend**: proxy `/argos` no `vite.config.js`, `/argos` no
+      `navigateFallbackDenylist` do PWA (sem isso o service worker serviria `index.html` nas
+      URLs de foto), `/install/order` em `bareLayoutPaths` e `baseUrl` opcional no
+      `RemoveDialog`.
+
+### Higiene
+
+- [x] **Fallback de tradução para inglês** no `LocalizationProvider`: as chaves criadas pelo
+      fork só existem em `en`/`pt`/`pt_BR` e, sem fallback, um usuário em espanhol via a string
+      `undefined` na tela. **111 chaves novas** nos três idiomas.
+- [x] `DeviceRow`: `km/h` fixo → unidade da preferência do usuário; "Motorista não
+      identificado" → i18n (`deviceNoDriver`).
+- [x] `SharePage`: mensagem de WhatsApp em PT hardcoded → i18n (`deviceShareMessage`).
+- [x] **Tokens de raio e sombra** (`dimensions.radiusCard/radiusControl/shadowRail/shadowPanel`):
+      as sombras fixas de `App.jsx` e `MainPage.jsx` e os `borderRadius: 12` soltos saíram dos
+      componentes.
+- [x] `playwright.config.js` aceita `PW_CHROMIUM_PATH` (usa um Chromium já instalado em
+      CI/container em vez de baixar outro).
+
+### Pendências deste ciclo
+
+- [ ] **UX fiel ao SigaSul**: o host `rastreamento.sigasul.com.br` é negado pela política de
+      rede do ambiente de desenvolvimento (gateway responde 403 ao CONNECT), então o painel de
+      referência não pôde ser mapeado. Liberar o host em *Network access → Allowed domains* do
+      ambiente, ou anexar screenshots, e calibrar cores/alturas/posições a partir disso.
+- [x] **Validar o `argos-api` contra um MySQL real** — feito no ciclo 2.6 (abaixo).
+- [ ] `web/tests/smoke.spec.js` depende do Traccar de produção pelo proxy do Vite e falha neste
+      ambiente por DNS bloqueado (não é regressão).
+
+## 2.6 Ciclo 2026-11-06 — fase de implantação do `argos-api`
+
+O código do ciclo anterior estava pronto, mas o serviço novo **nunca havia rodado contra um
+banco**. Com Docker disponível no ambiente, a pilha real foi levantada (MySQL 8 + Traccar
+oficial + `argos-api` + proxy nginx) e o módulo foi exercitado de ponta a ponta. Quatro
+defeitos reais apareceram — nenhum deles apareceria em revisão de código.
+
+### Defeitos encontrados e corrigidos
+
+- [x] **`GET /orders` respondia 500 em todas as variantes.** A lista principal do módulo —
+      a primeira tela que o instalador e o administrador abrem — estava completamente quebrada.
+      Causa: `LIMIT ?`/`OFFSET ?` em *prepared statement*, que o MySQL rejeita
+      (`Incorrect arguments to mysqld_stmt_execute`). Agora `limit`/`offset` são inteiros
+      saneados e interpolados; todo dado continua indo por placeholder
+      (`argos-api/src/routes/orders.js`).
+- [x] **O GPS das fotos nunca era gravado.** `metadata.exif` do sharp é um *Buffer* TIFF cru,
+      então `metadata.exif?.gps?.GPSLatitude` era sempre `undefined` e as colunas
+      `exif_lat`/`exif_lon` ficavam nulas — a prova de onde a instalação aconteceu se perdia
+      silenciosamente. Passou a decodificar com `exif-reader` (dependência nova, 1 pacote),
+      e o `DateTimeOriginal` do EXIF agora também serve de data quando o celular não informa
+      (`argos-api/src/photos.js`).
+- [x] **Upload acima do limite devolvia 500.** O erro do multer (`LIMIT_FILE_SIZE`) não era
+      traduzido. Agora o handler final devolve **413** com "Imagem acima do limite de 8 MB", e
+      erro de SQL devolve mensagem genérica com o detalhe só no log — quem está em campo não
+      vê a mensagem do driver MySQL (`argos-api/src/index.js`).
+- [x] **Checklist sem `position` derrubava a requisição** (bind `undefined` → 500). Agora é
+      400 com explicação.
+
+### Riscos de implantação fechados
+
+- [x] **Build podia gerar imagem quebrada sem falhar.** O npm 10 tem um modo de falha
+      (`Exit handler never called!`) em que aborta a instalação no meio e **sai com código 0**:
+      o build terminava "com sucesso" e o container entrava em crash-loop sem o express.
+      Reproduzido neste ambiente. O `Dockerfile` passou a usar `npm ci` (respeita o lockfile) e
+      a carregar as dependências num `node -e` depois do install — o build agora falha onde o
+      problema deve aparecer.
+- [x] **Documentação de banco estava errada.** O `GRANT ALL ON traccar.`argos\_%`` sugerido
+      antes **não funciona**: o MySQL só aceita curinga no nome do banco, não da tabela, e o
+      serviço não conseguia criar o próprio schema. Corrigido para **banco separado** (`argos`),
+      que também é mais seguro: o `argos-api` não recebe acesso nenhum às tabelas `tc_*` (ele
+      nunca as consulta — identidade e visibilidade vêm da API HTTP do Traccar).
+- [x] **Frontend publicado antes do proxy `/argos`** mostrava um fragmento de HTML no snackbar.
+      Agora `argosApi.js` reconhece resposta não-JSON em 404/502/503/504 (e falha de rede) e as
+      telas de instalação mostram "módulo de instalação indisponível" com o que verificar
+      (`web/src/install/components/ServiceUnavailable.jsx`, 2 chaves i18n novas nos 3 idiomas).
+
+### Artefatos de implantação
+
+- [x] `docker-compose.yml` + `deploy/nginx.conf` + `deploy/mysql-init.sh` + `.env.example`:
+      a topologia inteira (Traccar com o frontend injetado, MySQL, `argos-api`, proxy) de pé
+      com um comando, com a regra `/argos` e o `client_max_body_size` de 12 MB já resolvidos.
+      É documentação executável do que precisa existir no EasyPanel.
+- [x] `argos-api/test/` — **61 verificações** contra Traccar e MySQL reais (`bootstrap.sh`,
+      `suite.sh`, `fixtures.mjs` com imagem que tem orientação EXIF 6, GPS e data). Cobre
+      identidade, CSRF, escopo por permissão, ciclo da ordem, upload (415 em texto disfarçado,
+      413 acima do limite, ETag/304, idempotência), EXIF, máquina de estados, laudo e
+      integridade. Pode ser apontada para o ambiente publicado com `BASE=https://seu-dominio`.
+- [x] `argos-api/README.md` com a **ordem** do deploy (banco → serviço → volume → variáveis →
+      proxy → sonda → só então o frontend) e o motivo de cada passo.
+
+### Descoberta de marca (white-label)
+
+- [x] O título da aba e o nome do PWA vinham de `server.attributes` (`title`, `description`,
+      `colorPrimary`, `customHead`), lidos pelo Traccar ao servir a página — não do código do
+      frontend. Sem definir, o cliente instala um aplicativo chamado **"Traccar"**. Verificado
+      na prática (PUT em `/api/server` renomeia a aba e o `manifest.webmanifest`) e documentado
+      nos dois READMEs. Vale considerar um formulário de marca na tela de Servidor.
+
+### Verificação
+
+- `argos-api/test/suite.sh` pelo proxy do compose: **61 ok, 0 falhas**.
+- Migrações: aplicadas e **idempotentes** (segunda execução sem efeito), com checksum em
+  `argos_schema_version`.
+- Pipeline de foto conferido no disco e no banco: 1920 px no original, 320 px na miniatura,
+  rotação EXIF aplicada (3000×2000 → 1280×1920), `sha256`, GPS `-27.5967/-48.5495` e
+  `taken_at` do EXIF.
+- `npm run build` (2316 módulos) e `npx eslint` limpos; `playwright test` com 4 casos verdes
+  (2 de perfis de acesso + 2 novos do módulo do instalador).
+- `docker build` do `argos-api` e do `Dockerfile` da raiz (que compila o frontend) concluem.
+
 ## 2. Feito neste ciclo (2026-07-19)
 
 ### Higiene e segurança
@@ -25,10 +203,11 @@ do dia, geofences com notificações, compartilhamento de localização e comand
 - [x] **Senha do MySQL removida do `traccar.xml`** — agora `config.useEnvironmentVariables=true`;
       a senha entra pela env var `DATABASE_PASSWORD` no serviço do EasyPanel.
 - [x] `README.md` próprio na raiz (como rodar, buildar, deploy, licença).
-- [ ] **PENDENTE (ação manual): rotacionar a senha do MySQL** — a senha antiga
-      (`Miguel@…`) está no histórico do git e o repositório tem remote público no GitHub.
-      Trocar a senha no MySQL/EasyPanel e configurar a env var. Opcional: recriar o repo
-      para limpar o histórico.
+- [ ] **PENDENTE (ação manual): rotacionar a senha do MySQL** — a senha antiga continua no
+      histórico do git e o repositório tem remote público no GitHub, então ela deve ser
+      considerada comprometida. Trocar no MySQL/EasyPanel e configurar a env var. Opcional:
+      recriar o repo para limpar o histórico. (Este documento não repete a senha: até um
+      prefixo reduz o espaço de busca de quem encontrar o repositório.)
 
 ### Tema centralizado (correção do dark mode)
 - [x] Tokens da marca em `web/src/common/theme/palette.js`: `sidebar.*` (fundo, header,

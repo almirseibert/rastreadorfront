@@ -39,6 +39,7 @@ import { useCatch } from '../reactHelper';
 import useMapStyles from '../map/core/useMapStyles';
 import { map } from '../map/core/MapView';
 import useSettingsStyles from './common/useSettingsStyles';
+import UserAccessAccordion from './components/UserAccessAccordion';
 import fetchOrThrow from '../common/util/fetchOrThrow';
 
 const UserPage = () => {
@@ -458,6 +459,7 @@ const UserPage = () => {
               </FormGroup>
             </AccordionDetails>
           </Accordion>
+          {manager && <UserAccessAccordion item={item} setItem={setItem} />}
           <EditAttributesAccordion
             attribute={attribute}
             attributes={item.attributes}

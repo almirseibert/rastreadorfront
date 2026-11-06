@@ -1,13 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
-import {
-  Tooltip,
-  ListItemButton,
-  Typography,
-  Box,
-  Avatar,
-  Chip,
-} from '@mui/material';
+import { Tooltip, ListItemButton, Typography, Box, Avatar, Chip } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import SpeedIcon from '@mui/icons-material/Speed';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -18,6 +11,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { devicesActions } from '../store';
 import { formatBoolean } from '../common/util/formatter';
+import { speedFromKnots, speedUnitString } from '../common/util/converter';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useAdministrator } from '../common/util/permissions';
 import { useAttributePreference } from '../common/util/preferences';
@@ -123,10 +117,17 @@ const DeviceRow = ({ devices, index, style }) => {
   const position = useSelector((state) => state.session.positions[item.id]);
 
   const devicePrimary = useAttributePreference('devicePrimary', 'name');
+  // Respeita a preferência de unidade do usuário em vez de assumir km/h.
+  const speedUnit = useAttributePreference('speedUnit', 'kmh');
 
-  const speed = position ? (position.speed * 1.852).toFixed(0) : 0;
+  // Card compacto: valor arredondado (formatSpeed usaria 2 decimais).
+  const speed = position
+    ? `${speedFromKnots(position.speed, speedUnit).toFixed(0)} ${speedUnitString(speedUnit, t)}`
+    : null;
   const address = position?.address || '';
-  const updateTime = item.lastUpdate ? dayjs(item.lastUpdate).format('DD/MM/YYYY HH:mm:ss') : t('deviceStatusUnknown');
+  const updateTime = item.lastUpdate
+    ? dayjs(item.lastUpdate).format('DD/MM/YYYY HH:mm:ss')
+    : t('deviceStatusUnknown');
   const driverUniqueId = position?.attributes?.driverUniqueId;
 
   const moving = item.status === 'online' && Boolean(position?.attributes?.motion);
@@ -157,7 +158,6 @@ const DeviceRow = ({ devices, index, style }) => {
           className={cx(classes.card, selectedDeviceId === item.id && classes.cardSelected)}
         >
           <Box className={classes.container}>
-
             {/* Linha 1: Avatar de status, Placa/Nome e Chip de status */}
             <Box className={classes.topRow}>
               <Box className={classes.vehicleInfo}>
@@ -180,7 +180,9 @@ const DeviceRow = ({ devices, index, style }) => {
                   />
                 </Tooltip>
                 {position && position.attributes.hasOwnProperty('ignition') && (
-                  <Tooltip title={`${t('positionIgnition')}: ${formatBoolean(position.attributes.ignition, t)}`}>
+                  <Tooltip
+                    title={`${t('positionIgnition')}: ${formatBoolean(position.attributes.ignition, t)}`}
+                  >
                     <Box>
                       {position.attributes.ignition ? (
                         <EngineIcon width={16} height={16} className={classes.success} />
@@ -202,7 +204,7 @@ const DeviceRow = ({ devices, index, style }) => {
               {position && (
                 <Typography variant="body2" className={classes.infoRow}>
                   <SpeedIcon className={classes.iconSmall} />
-                  <span className={classes.speed}>{speed} km/h</span>
+                  <span className={classes.speed}>{speed}</span>
                 </Typography>
               )}
             </Box>
@@ -210,7 +212,11 @@ const DeviceRow = ({ devices, index, style }) => {
             {/* Linha 3: Motorista */}
             <Typography variant="body2" className={classes.infoRow}>
               <PersonIcon className={classes.iconSmall} />
-              {driverUniqueId ? <DriverValue driverUniqueId={driverUniqueId} /> : 'Motorista não identificado'}
+              {driverUniqueId ? (
+                <DriverValue driverUniqueId={driverUniqueId} />
+              ) : (
+                t('deviceNoDriver')
+              )}
             </Typography>
 
             {/* Linha 4: Endereço */}
@@ -224,7 +230,6 @@ const DeviceRow = ({ devices, index, style }) => {
                 {address}
               </Typography>
             )}
-
           </Box>
         </ListItemButton>
       </div>

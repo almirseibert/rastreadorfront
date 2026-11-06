@@ -8,6 +8,13 @@ export default defineConfig(() => ({
   server: {
   port: 3000,
   proxy: {
+    // Serviço de ordens de instalação (argos-api). Em produção o EasyPanel roteia
+    // /argos para o serviço; em dev aponta para a instância local.
+    '/argos': {
+      target: process.env.ARGOS_API_URL || 'http://localhost:8090',
+      changeOrigin: false,
+      secure: false,
+    },
     '/api': {
       // Substitua pela URL exata do seu Easypanel, sem a barra (/) no final
       target: 'https://rastreamento-traccar.oehpg2.easypanel.host/', 
@@ -26,7 +33,8 @@ export default defineConfig(() => ({
     VitePWA({
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       workbox: {
-        navigateFallbackDenylist: [/^\/api/],
+        // Sem /argos aqui, o service worker serviria index.html nas URLs de foto.
+        navigateFallbackDenylist: [/^\/api/, /^\/argos/],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,woff,woff2,mp3}'],
       },

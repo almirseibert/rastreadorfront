@@ -100,9 +100,7 @@ const SharePage = () => {
     setCopied(true);
   };
 
-  const shareMessage = device
-    ? `Acompanhe a localização de ${device.name} em tempo real: ${link}`
-    : link;
+  const shareMessage = device ? `${t('deviceShareMessage')} ${device.name}: ${link}` : link;
 
   const handleNativeShare = async () => {
     try {

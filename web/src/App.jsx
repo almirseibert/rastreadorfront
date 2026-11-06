@@ -19,7 +19,16 @@ import usePersistedState from './common/util/usePersistedState';
 
 // Rotas de "detalhe" (abertas via botão voltar) que gerenciam o próprio layout
 // de tela cheia e portanto não recebem o chrome global (trilho + barra de topo).
-const bareLayoutPaths = ['/replay', '/position', '/network', '/event', '/emulator'];
+// '/install/order' entra aqui porque o wizard do instalador é usado no celular em campo:
+// o trilho e o menu inferior roubariam espaço no meio de um formulário longo.
+const bareLayoutPaths = [
+  '/replay',
+  '/position',
+  '/network',
+  '/event',
+  '/emulator',
+  '/install/order',
+];
 
 const useStyles = makeStyles()((theme) => ({
   page: {
@@ -44,7 +53,7 @@ const useStyles = makeStyles()((theme) => ({
     flexShrink: 0,
     height: '100%',
     backgroundColor: theme.palette.sidebar.background,
-    boxShadow: '2px 0 10px rgba(0,0,0,0.3)',
+    boxShadow: theme.dimensions.shadowRail,
     zIndex: 2,
   },
   main: {

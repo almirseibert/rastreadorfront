@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { makeStyles } from 'tss-react/mui';
 import RemoveDialog from '../../common/components/RemoveDialog';
 import { useTranslation } from '../../common/components/LocalizationProvider';
+import { usePageEditable } from '../../common/util/useAccess';
 
 const useStyles = makeStyles()(() => ({
   row: {
@@ -19,9 +20,10 @@ const CollectionActions = ({
   itemId,
   editPath,
   endpoint,
+  baseUrl,
   setTimestamp,
   customActions,
-  readonly,
+  readonly: readonlyProp,
 }) => {
   const theme = useTheme();
   const { classes } = useStyles();
@@ -29,6 +31,9 @@ const CollectionActions = ({
   const t = useTranslation();
 
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
+  // Somente leitura quando a prop pede OU quando o perfil de acesso não permite editar a página.
+  const editable = usePageEditable();
+  const readonly = readonlyProp || !editable;
 
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [removing, setRemoving] = useState(false);
@@ -109,6 +114,7 @@ const CollectionActions = ({
         style={{ transform: 'none' }}
         open={removing}
         endpoint={endpoint}
+        baseUrl={baseUrl}
         itemId={itemId}
         onResult={handleRemoveResult}
       />

@@ -11,9 +11,13 @@ import RouteIcon from '@mui/icons-material/Route';
 import ViewTimelineIcon from '@mui/icons-material/ViewTimeline';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 
+import DrawIcon from '@mui/icons-material/Draw';
+import BuildIcon from '@mui/icons-material/Build';
+
 import { useTranslation } from './LocalizationProvider';
 import { useRestriction } from '../util/permissions';
 import useNavigation from './useNavigation';
+import useAccess from '../util/useAccess';
 import LogoMark from './LogoMark';
 
 // Trilho de navegação vertical estilo SigaSul: ícones compactos com rótulo curto.
@@ -110,24 +114,40 @@ const AppSidebar = () => {
   const t = useTranslation();
 
   const readonly = useRestriction('readonly');
-  const disableReports = useRestriction('disableReports');
+  const { canView, allowedPages } = useAccess();
 
   const { currentSelection, handleSelection, handleAccount, handleLogout } = useNavigation();
 
   const selection = currentSelection();
 
+  // Itens derivados do registro de páginas + perfil de acesso (common/util/pages.js).
+  const anyReport = allowedPages.some((page) => page.group === 'reports');
+  const anySettings = allowedPages.some(
+    (page) => page.group === 'settings' && page.key !== 'account',
+  );
+
   const items = [
-    { key: 'map', label: t('mapTitle'), icon: <MapIcon /> },
-    ...(!disableReports
+    ...(canView('map') ? [{ key: 'map', label: t('mapTitle'), icon: <MapIcon /> }] : []),
+    ...(canView('dashboard')
       ? [{ key: 'dashboard', label: t('dashboardTitle'), icon: <DashboardIcon /> }]
       : []),
-    { key: 'trips', label: t('reportTrips'), icon: <RouteIcon /> },
-    { key: 'timeline', label: t('timelineTitle'), icon: <ViewTimelineIcon /> },
-    { key: 'devices', label: t('deviceTitle'), icon: <DirectionsCarIcon /> },
-    ...(!disableReports
-      ? [{ key: 'reports', label: t('reportTitle'), icon: <DescriptionIcon /> }]
+    ...(canView('trips') ? [{ key: 'trips', label: t('reportTrips'), icon: <RouteIcon /> }] : []),
+    ...(canView('timeline')
+      ? [{ key: 'timeline', label: t('timelineTitle'), icon: <ViewTimelineIcon /> }]
       : []),
-    { key: 'settings', label: t('settingsTitle'), icon: <SettingsIcon /> },
+    ...(canView('geofences')
+      ? [{ key: 'geofences', label: t('sharedGeofences'), icon: <DrawIcon /> }]
+      : []),
+    ...(canView('install')
+      ? [{ key: 'install', label: t('installTitle'), icon: <BuildIcon /> }]
+      : []),
+    ...(canView('devices')
+      ? [{ key: 'devices', label: t('deviceTitle'), icon: <DirectionsCarIcon /> }]
+      : []),
+    ...(anyReport ? [{ key: 'reports', label: t('reportTitle'), icon: <DescriptionIcon /> }] : []),
+    ...(anySettings
+      ? [{ key: 'settings', label: t('settingsTitle'), icon: <SettingsIcon /> }]
+      : []),
     ...(!readonly ? [{ key: 'account', label: t('settingsUser'), icon: <PersonIcon /> }] : []),
   ];
 

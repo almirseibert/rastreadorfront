@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Container,
   Button,
   Accordion,
@@ -14,6 +15,7 @@ import { useTranslation } from '../../common/components/LocalizationProvider';
 import PageLayout from '../../common/components/PageLayout';
 import useSettingsStyles from '../common/useSettingsStyles';
 import fetchOrThrow from '../../common/util/fetchOrThrow';
+import { usePageEditable } from '../../common/util/useAccess';
 
 const EditItemView = ({
   children,
@@ -31,6 +33,9 @@ const EditItemView = ({
   const t = useTranslation();
 
   const { id } = useParams();
+
+  // Perfis de acesso: página concedida apenas para leitura bloqueia o Salvar.
+  const editable = usePageEditable();
 
   useEffectAsync(async () => {
     if (!item) {
@@ -64,6 +69,7 @@ const EditItemView = ({
   return (
     <PageLayout menu={menu} breadcrumbs={breadcrumbs}>
       <Container maxWidth="xs" className={classes.container}>
+        {!editable && <Alert severity="info">{t('readonlyNotice')}</Alert>}
         {item ? (
           children
         ) : (
@@ -90,7 +96,7 @@ const EditItemView = ({
             color="primary"
             variant="contained"
             onClick={handleSave}
-            disabled={!item || !validate()}
+            disabled={!item || !editable || !validate()}
           >
             {t('sharedSave')}
           </Button>

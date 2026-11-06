@@ -14,6 +14,8 @@ import {
 import { useTranslation } from '../../common/components/LocalizationProvider';
 import { useCatchCallback } from '../../reactHelper';
 import fetchOrThrow from '../../common/util/fetchOrThrow';
+import ProfileSelect from './ProfileSelect';
+import { PROFILE_ATTRIBUTE, defaultProfile, parseProfiles } from '../../common/util/useAccess';
 
 // Assistente de sub-usuário de uma empresa (grupo): cria um usuário comum e concede
 // acesso apenas ao subconjunto escolhido — a empresa inteira (grupo) ou dispositivos
@@ -22,6 +24,8 @@ const SubUserWizard = ({ open, group, onClose, onCreated }) => {
   const t = useTranslation();
 
   const devices = useSelector((state) => state.devices.items);
+  const server = useSelector((state) => state.session.server);
+  const profiles = useMemo(() => parseProfiles(server), [server]);
   const groupDevices = useMemo(
     () =>
       Object.values(devices)
@@ -35,6 +39,7 @@ const SubUserWizard = ({ open, group, onClose, onCreated }) => {
   const [password, setPassword] = useState('');
   const [wholeGroup, setWholeGroup] = useState(true);
   const [selectedDevices, setSelectedDevices] = useState([]);
+  const [profileId, setProfileId] = useState(() => defaultProfile(profiles)?.id || '');
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -59,7 +64,7 @@ const SubUserWizard = ({ open, group, onClose, onCreated }) => {
           name: name.trim(),
           email: email.trim(),
           password,
-          attributes: {},
+          attributes: profileId ? { [PROFILE_ATTRIBUTE]: profileId } : {},
         }),
       });
       const user = await userResponse.json();
@@ -104,7 +109,7 @@ const SubUserWizard = ({ open, group, onClose, onCreated }) => {
     } finally {
       setSaving(false);
     }
-  }, [name, email, password, wholeGroup, selectedDevices, group, onCreated]);
+  }, [name, email, password, profileId, wholeGroup, selectedDevices, group, onCreated]);
 
   const handleClose = () => {
     reset();
@@ -136,6 +141,7 @@ const SubUserWizard = ({ open, group, onClose, onCreated }) => {
           onChange={(e) => setPassword(e.target.value)}
           fullWidth
         />
+        <ProfileSelect value={profileId} onChange={setProfileId} />
         <FormControlLabel
           control={
             <Checkbox checked={wholeGroup} onChange={(e) => setWholeGroup(e.target.checked)} />

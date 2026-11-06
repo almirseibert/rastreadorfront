@@ -18,7 +18,24 @@ export default defineConfig({
     baseURL,
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Ambientes que já têm um Chromium instalado (CI/containers) podem apontá-lo em
+  // PW_CHROMIUM_PATH em vez de baixar outro com `npx playwright install`.
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.PW_CHROMIUM_PATH
+          ? {
+              launchOptions: {
+                executablePath: process.env.PW_CHROMIUM_PATH,
+                args: ['--no-sandbox'],
+              },
+            }
+          : {}),
+      },
+    },
+  ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {

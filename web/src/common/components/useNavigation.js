@@ -2,6 +2,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { sessionActions } from '../../store';
 import { nativePostMessage } from './NativeInterface';
+import useAccess from '../util/useAccess';
 
 // Lógica de navegação compartilhada entre a sidebar desktop (AppSidebar)
 // e o menu inferior mobile (BottomMenu).
@@ -14,11 +15,16 @@ const useNavigation = () => {
   const user = useSelector((state) => state.session.user);
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
 
+  const { canView, allowedPages } = useAccess();
+
   const currentSelection = () => {
     if (location.pathname === `/settings/user/${user.id}`) return 'account';
+    if (location.pathname.startsWith('/install')) return 'install';
     if (location.pathname.startsWith('/settings/device')) return 'devices';
     if (location.pathname.startsWith('/settings')) return 'settings';
     if (location.pathname.startsWith('/reports')) return 'reports';
+    if (location.pathname === '/replay') return 'reports';
+    if (location.pathname === '/geofences') return 'geofences';
     if (location.pathname === '/trips') return 'trips';
     if (location.pathname === '/timeline') return 'timeline';
     if (location.pathname === '/dashboard') return 'dashboard';
@@ -77,7 +83,21 @@ const useNavigation = () => {
       case 'dashboard':
         navigate('/dashboard');
         break;
+      case 'geofences':
+        navigate('/geofences');
+        break;
+      case 'install':
+        navigate('/install');
+        break;
       case 'reports': {
+        // Abre o primeiro relatório que o perfil permite (o combinado, quando disponível).
+        const firstReport =
+          allowedPages.find((page) => page.key === 'reports.combined') ||
+          allowedPages.find((page) => page.group === 'reports');
+        if (firstReport && firstReport.key !== 'reports.combined') {
+          navigate(firstReport.path);
+          break;
+        }
         let id = selectedDeviceId;
         if (id == null) {
           const deviceIds = Object.keys(devices);
@@ -92,9 +112,15 @@ const useNavigation = () => {
         }
         break;
       }
-      case 'settings':
-        navigate('/settings/preferences?menu=true');
+      case 'settings': {
+        // Entra na primeira página de configurações permitida pelo perfil.
+        const target = canView('preferences')
+          ? '/settings/preferences'
+          : allowedPages.find((page) => page.group === 'settings')?.path ||
+            `/settings/user/${user.id}`;
+        navigate(`${target}?menu=true`);
         break;
+      }
       case 'logout':
         handleLogout();
         break;

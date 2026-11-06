@@ -63,6 +63,22 @@ import { generateLoginToken } from './common/components/NativeInterface';
 import { useLocalization } from './common/components/LocalizationProvider';
 import fetchOrThrow from './common/util/fetchOrThrow';
 import AuditPage from './reports/AuditPage';
+import RequirePage from './common/components/RequirePage';
+import ProfilesPage from './settings/ProfilesPage';
+import InstallOrdersPage from './install/InstallOrdersPage';
+import InstallOrderPage from './install/InstallOrderPage';
+import InstallationsPage from './install/InstallationsPage';
+import InstallationReviewPage from './install/InstallationReviewPage';
+import ChecklistTemplatesPage from './install/ChecklistTemplatesPage';
+import ChecklistTemplatePage from './install/ChecklistTemplatePage';
+
+// Envolve o elemento da rota na guarda de perfis de acesso (common/util/pages.js).
+// A chave da página é explícita aqui para não depender de inferência pelo pathname.
+const guard = (page, element, selfParam) => (
+  <RequirePage page={page} selfParam={selfParam}>
+    {element}
+  </RequirePage>
+);
 
 const Navigation = () => {
   const dispatch = useDispatch();
@@ -121,74 +137,102 @@ const Navigation = () => {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/change-server" element={<ChangeServerPage />} />
       <Route path="/" element={<App />}>
-        <Route index element={<MainPage />} />
+        <Route index element={guard('map', <MainPage />)} />
 
         <Route path="position/:id" element={<PositionPage />} />
         <Route path="network/:positionId" element={<NetworkPage />} />
         <Route path="event/:id" element={<EventPage />} />
-        <Route path="replay" element={<ReplayPage />} />
-        <Route path="trips" element={<TripsPage />} />
-        <Route path="timeline" element={<TimelinePage />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="geofences" element={<GeofencesPage />} />
-        <Route path="emulator" element={<EmulatorPage />} />
+        <Route path="replay" element={guard('reports.replay', <ReplayPage />)} />
+        <Route path="trips" element={guard('trips', <TripsPage />)} />
+        <Route path="timeline" element={guard('timeline', <TimelinePage />)} />
+        <Route path="dashboard" element={guard('dashboard', <DashboardPage />)} />
+        <Route path="geofences" element={guard('geofences', <GeofencesPage />)} />
+        <Route path="emulator" element={guard('emulator', <EmulatorPage />)} />
+
+        <Route path="install">
+          <Route index element={guard('install', <InstallOrdersPage />)} />
+          <Route path="order" element={guard('install', <InstallOrderPage />)} />
+          <Route path="order/:id" element={guard('install', <InstallOrderPage />)} />
+        </Route>
 
         <Route path="settings">
-          <Route path="companies" element={<CompaniesPage />} />
-          <Route path="accumulators/:deviceId" element={<AccumulatorsPage />} />
-          <Route path="announcement" element={<AnnouncementPage />} />
-          <Route path="calendars" element={<CalendarsPage />} />
-          <Route path="calendar/:id" element={<CalendarPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="commands" element={<CommandsPage />} />
-          <Route path="command/:id" element={<CommandPage />} />
-          <Route path="command" element={<CommandPage />} />
-          <Route path="attributes" element={<ComputedAttributesPage />} />
-          <Route path="attribute/:id" element={<ComputedAttributePage />} />
-          <Route path="attribute" element={<ComputedAttributePage />} />
-          <Route path="devices" element={<DevicesPage />} />
-          <Route path="device/:id/connections" element={<DeviceConnectionsPage />} />
-          <Route path="device/:id/command" element={<CommandDevicePage />} />
-          <Route path="device/:id/share" element={<SharePage />} />
-          <Route path="device/:id" element={<DevicePage />} />
-          <Route path="device" element={<DevicePage />} />
-          <Route path="drivers" element={<DriversPage />} />
-          <Route path="driver/:id" element={<DriverPage />} />
-          <Route path="driver" element={<DriverPage />} />
-          <Route path="geofence/:id" element={<GeofencePage />} />
-          <Route path="geofence" element={<GeofencePage />} />
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="group/:id/connections" element={<GroupConnectionsPage />} />
-          <Route path="group/:id/command" element={<CommandGroupPage />} />
-          <Route path="group/:id" element={<GroupPage />} />
-          <Route path="group" element={<GroupPage />} />
-          <Route path="maintenances" element={<MaintenancesPage />} />
-          <Route path="maintenance/:id" element={<MaintenancePage />} />
-          <Route path="maintenance" element={<MaintenancePage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="notification/:id" element={<NotificationPage />} />
-          <Route path="notification" element={<NotificationPage />} />
-          <Route path="preferences" element={<PreferencesPage />} />
-          <Route path="server" element={<ServerPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="user/:id/connections" element={<UserConnectionsPage />} />
-          <Route path="user/:id" element={<UserPage />} />
-          <Route path="user" element={<UserPage />} />
+          <Route path="companies" element={guard('companies', <CompaniesPage />)} />
+          <Route path="profiles" element={guard('profiles', <ProfilesPage />)} />
+          <Route path="installations" element={guard('installations', <InstallationsPage />)} />
+          <Route
+            path="installation/:id"
+            element={guard('installations', <InstallationReviewPage />)}
+          />
+          <Route path="checklists" element={guard('checklists', <ChecklistTemplatesPage />)} />
+          <Route path="checklist/:id" element={guard('checklists', <ChecklistTemplatePage />)} />
+          <Route path="checklist" element={guard('checklists', <ChecklistTemplatePage />)} />
+          <Route path="accumulators/:deviceId" element={guard('devices', <AccumulatorsPage />)} />
+          <Route path="announcement" element={guard('announcement', <AnnouncementPage />)} />
+          <Route path="calendars" element={guard('calendars', <CalendarsPage />)} />
+          <Route path="calendar/:id" element={guard('calendars', <CalendarPage />)} />
+          <Route path="calendar" element={guard('calendars', <CalendarPage />)} />
+          <Route path="commands" element={guard('commands', <CommandsPage />)} />
+          <Route path="command/:id" element={guard('commands', <CommandPage />)} />
+          <Route path="command" element={guard('commands', <CommandPage />)} />
+          <Route
+            path="attributes"
+            element={guard('computedAttributes', <ComputedAttributesPage />)}
+          />
+          <Route
+            path="attribute/:id"
+            element={guard('computedAttributes', <ComputedAttributePage />)}
+          />
+          <Route
+            path="attribute"
+            element={guard('computedAttributes', <ComputedAttributePage />)}
+          />
+          <Route path="devices" element={guard('devices', <DevicesPage />)} />
+          <Route
+            path="device/:id/connections"
+            element={guard('devices', <DeviceConnectionsPage />)}
+          />
+          <Route path="device/:id/command" element={guard('devices', <CommandDevicePage />)} />
+          <Route path="device/:id/share" element={guard('devices', <SharePage />)} />
+          <Route path="device/:id" element={guard('devices', <DevicePage />)} />
+          <Route path="device" element={guard('devices', <DevicePage />)} />
+          <Route path="drivers" element={guard('drivers', <DriversPage />)} />
+          <Route path="driver/:id" element={guard('drivers', <DriverPage />)} />
+          <Route path="driver" element={guard('drivers', <DriverPage />)} />
+          <Route path="geofence/:id" element={guard('geofences', <GeofencePage />)} />
+          <Route path="geofence" element={guard('geofences', <GeofencePage />)} />
+          <Route path="groups" element={guard('groups', <GroupsPage />)} />
+          <Route path="group/:id/connections" element={guard('groups', <GroupConnectionsPage />)} />
+          <Route path="group/:id/command" element={guard('groups', <CommandGroupPage />)} />
+          <Route path="group/:id" element={guard('groups', <GroupPage />)} />
+          <Route path="group" element={guard('groups', <GroupPage />)} />
+          <Route path="maintenances" element={guard('maintenances', <MaintenancesPage />)} />
+          <Route path="maintenance/:id" element={guard('maintenances', <MaintenancePage />)} />
+          <Route path="maintenance" element={guard('maintenances', <MaintenancePage />)} />
+          <Route path="notifications" element={guard('notifications', <NotificationsPage />)} />
+          <Route path="notification/:id" element={guard('notifications', <NotificationPage />)} />
+          <Route path="notification" element={guard('notifications', <NotificationPage />)} />
+          <Route path="preferences" element={guard('preferences', <PreferencesPage />)} />
+          <Route path="server" element={guard('server', <ServerPage />)} />
+          <Route path="users" element={guard('users', <UsersPage />)} />
+          <Route path="user/:id/connections" element={guard('users', <UserConnectionsPage />)} />
+          {/* A própria conta usa esta rota: selfParam libera quando o id é do usuário logado. */}
+          <Route path="user/:id" element={guard('users', <UserPage />, 'id')} />
+          <Route path="user" element={guard('users', <UserPage />)} />
         </Route>
 
         <Route path="reports">
-          <Route path="combined" element={<CombinedReportPage />} />
-          <Route path="chart" element={<ChartReportPage />} />
-          <Route path="events" element={<EventReportPage />} />
-          <Route path="geofences" element={<GeofenceReportPage />} />
-          <Route path="route" element={<PositionsReportPage />} />
-          <Route path="stops" element={<StopReportPage />} />
-          <Route path="summary" element={<SummaryReportPage />} />
-          <Route path="trips" element={<TripReportPage />} />
-          <Route path="scheduled" element={<ScheduledPage />} />
-          <Route path="statistics" element={<StatisticsPage />} />
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="logs" element={<LogsPage />} />
+          <Route path="combined" element={guard('reports.combined', <CombinedReportPage />)} />
+          <Route path="chart" element={guard('reports.chart', <ChartReportPage />)} />
+          <Route path="events" element={guard('reports.events', <EventReportPage />)} />
+          <Route path="geofences" element={guard('reports.geofences', <GeofenceReportPage />)} />
+          <Route path="route" element={guard('reports.route', <PositionsReportPage />)} />
+          <Route path="stops" element={guard('reports.stops', <StopReportPage />)} />
+          <Route path="summary" element={guard('reports.summary', <SummaryReportPage />)} />
+          <Route path="trips" element={guard('reports.trips', <TripReportPage />)} />
+          <Route path="scheduled" element={guard('reports.scheduled', <ScheduledPage />)} />
+          <Route path="statistics" element={guard('reports.statistics', <StatisticsPage />)} />
+          <Route path="audit" element={guard('reports.audit', <AuditPage />)} />
+          <Route path="logs" element={guard('reports.logs', <LogsPage />)} />
         </Route>
       </Route>
     </Routes>

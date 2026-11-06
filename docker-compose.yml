@@ -1,0 +1,88 @@
+# Topologia de referência do Argos Track.
+#
+# O EasyPanel não usa este arquivo — cada serviço é criado na interface dele. Este compose
+# existe por dois motivos: documentar de forma executável como as quatro peças se encaixam
+# (sobretudo a regra de proxy /argos, que é o ponto onde o deploy costuma falhar) e permitir
+# subir a pilha inteira numa máquina para testar antes de publicar.
+#
+#   docker compose up -d --build
+#   curl localhost:8080/argos/health      -> {"status":"ok",...}
+#   http://localhost:8080                 -> interface do Argos Track
+#
+# Copie .env.example para .env e troque as senhas antes de subir.
+
+services:
+  mysql:
+    image: mysql:8
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: traccar
+      MYSQL_USER: ${DB_USER_TRACCAR}
+      MYSQL_PASSWORD: ${DB_PASSWORD_TRACCAR}
+      # Lidas pelo script de inicialização para criar o banco/usuário do argos-api.
+      DB_USER_ARGOS: ${DB_USER_ARGOS}
+      DB_PASSWORD_ARGOS: ${DB_PASSWORD_ARGOS}
+    volumes:
+      - mysql:/var/lib/mysql
+      # Cria o banco separado do argos-api e o usuário dele, que não tem acesso às tabelas
+      # tc_* do Traccar. Roda só na primeira inicialização, com o volume vazio.
+      - ./deploy/mysql-init.sh:/docker-entrypoint-initdb.d/000-argos.sh:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-p${MYSQL_ROOT_PASSWORD}']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Traccar oficial com o frontend do Argos Track injetado (o Dockerfile da raiz).
+  traccar:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # traccar.xml habilita config.useEnvironmentVariables, então qualquer chave pode ser
+      # sobrescrita por variável de ambiente (maiúsculas, pontos viram underscore).
+      DATABASE_URL: jdbc:mysql://mysql:3306/traccar?serverTimezone=UTC&useSSL=false&allowMultiQueries=true&autoReconnect=true&useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+      DATABASE_USER: ${DB_USER_TRACCAR}
+      DATABASE_PASSWORD: ${DB_PASSWORD_TRACCAR}
+    volumes:
+      - traccar-logs:/opt/traccar/logs
+    # Em produção, publique aqui as portas dos protocolos dos rastreadores (ex.: 5000-5150).
+
+  argos-api:
+    build: ./argos-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TRACCAR_URL: http://traccar:8082
+      DB_HOST: mysql
+      DB_NAME: argos
+      DB_USER: ${DB_USER_ARGOS}
+      DB_PASSWORD: ${DB_PASSWORD_ARGOS}
+      STORAGE_DIR: /data/argos
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    volumes:
+      # As fotos da instalação vivem aqui. É o volume que precisa de backup: o laudo é
+      # prova de entrega do serviço e não pode ser recriado.
+      - argos-photos:/data
+
+  # No EasyPanel este papel é da regra de domínio/path do próprio painel. Aqui é um nginx,
+  # para que o mesmo contrato (/argos no mesmo domínio, corpo de até 12 MB) seja testável.
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [traccar, argos-api]
+    ports:
+      - '${HTTP_PORT:-8080}:80'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  mysql:
+  traccar-logs:
+  argos-photos:

@@ -15,7 +15,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import BusinessIcon from '@mui/icons-material/Business';
 import { useTranslation } from '../common/components/LocalizationProvider';
-import { useManager, useRestriction } from '../common/util/permissions';
+import useAccess from '../common/util/useAccess';
 import useNavigation from '../common/components/useNavigation';
 
 const useStyles = makeStyles()((theme) => ({
@@ -91,8 +91,7 @@ const MainTopBar = ({ selectedGroup = 0, setSelectedGroup }) => {
   const { classes, cx } = useStyles();
   const t = useTranslation();
 
-  const manager = useManager();
-  const disableReports = useRestriction('disableReports');
+  const { canView, allowedPages, manager } = useAccess();
 
   const { user, currentSelection, handleSelection, handleAccount, handleLogout } = useNavigation();
   const selection = currentSelection();
@@ -104,11 +103,14 @@ const MainTopBar = ({ selectedGroup = 0, setSelectedGroup }) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const views = [
-    { key: 'map', label: t('mapTitle') },
-    ...(!disableReports ? [{ key: 'dashboard', label: t('dashboardTitle') }] : []),
-    { key: 'trips', label: t('reportTrips') },
-    { key: 'timeline', label: t('timelineTitle') },
-    ...(!disableReports ? [{ key: 'reports', label: t('reportTitle') }] : []),
+    ...(canView('map') ? [{ key: 'map', label: t('mapTitle') }] : []),
+    ...(canView('dashboard') ? [{ key: 'dashboard', label: t('dashboardTitle') }] : []),
+    ...(canView('trips') ? [{ key: 'trips', label: t('reportTrips') }] : []),
+    ...(canView('timeline') ? [{ key: 'timeline', label: t('timelineTitle') }] : []),
+    ...(canView('install') ? [{ key: 'install', label: t('installTitle') }] : []),
+    ...(allowedPages.some((page) => page.group === 'reports')
+      ? [{ key: 'reports', label: t('reportTitle') }]
+      : []),
   ];
 
   const selectedCompany = selectedGroup || 'all';

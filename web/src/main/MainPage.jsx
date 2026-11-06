@@ -40,10 +40,10 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
-    borderRadius: 12,
+    borderRadius: theme.dimensions.radiusCard,
     overflow: 'hidden',
     backgroundColor: theme.palette.background.paper,
-    boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+    boxShadow: theme.dimensions.shadowPanel,
     border: `1px solid ${theme.palette.divider}`,
   },
   floatingPanelOpen: {
