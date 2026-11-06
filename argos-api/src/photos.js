@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import exifReader from 'exif-reader';
 import config from './config.js';
 
 // Pipeline de foto: valida pelo conteúdo (não pelo mime declarado), corrige a orientação
@@ -35,6 +36,29 @@ const gpsToDecimal = (value, ref) => {
   return ref === 'S' || ref === 'W' ? -decimal : decimal;
 };
 
+// `metadata.exif` do sharp é um Buffer cru (bloco TIFF), não um objeto: ler
+// `metadata.exif.gps` devolve sempre undefined e o GPS nunca era gravado. É preciso
+// decodificar o bloco. A falha aqui nunca derruba o upload — a foto importa mais que o EXIF.
+const readExif = (raw) => {
+  if (!raw || !raw.length) {
+    return {};
+  }
+  try {
+    const tags = exifReader(raw) || {};
+    const gps = tags.GPSInfo || tags.gps || {};
+    const photo = tags.Photo || tags.exif || {};
+    const taken = photo.DateTimeOriginal || photo.DateTimeDigitized || tags.Image?.DateTime;
+    const date = taken instanceof Date ? taken : taken ? new Date(taken) : null;
+    return {
+      lat: gpsToDecimal(gps.GPSLatitude, gps.GPSLatitudeRef),
+      lon: gpsToDecimal(gps.GPSLongitude, gps.GPSLongitudeRef),
+      takenAt: date && !Number.isNaN(date.getTime()) ? date : null,
+    };
+  } catch {
+    return {};
+  }
+};
+
 export const processUpload = async ({ buffer, orderId, originalName }) => {
   let image = sharp(buffer, { failOn: 'none' });
   let metadata;
@@ -48,6 +72,8 @@ export const processUpload = async ({ buffer, orderId, originalName }) => {
       status: 415,
     });
   }
+
+  const exif = readExif(metadata.exif);
 
   const dir = relativeDir(orderId);
   await fs.mkdir(absolutePath(dir), { recursive: true });
@@ -96,8 +122,9 @@ export const processUpload = async ({ buffer, orderId, originalName }) => {
     height: info?.height || null,
     sha256: crypto.createHash('sha256').update(full).digest('hex'),
     originalName: originalName ? originalName.slice(0, 255) : null,
-    exifLat: gpsToDecimal(metadata.exif?.gps?.GPSLatitude, metadata.exif?.gps?.GPSLatitudeRef),
-    exifLon: gpsToDecimal(metadata.exif?.gps?.GPSLongitude, metadata.exif?.gps?.GPSLongitudeRef),
+    exifLat: exif.lat ?? null,
+    exifLon: exif.lon ?? null,
+    exifTakenAt: exif.takenAt || null,
   };
 };
 

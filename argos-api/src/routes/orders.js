@@ -123,16 +123,21 @@ router.get('/orders', async (req, res, next) => {
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const page = Math.max(Number(req.query.page) || 1, 1);
+    // LIMIT/OFFSET são interpolados, não parametrizados: o MySQL não aceita placeholder
+    // nessa posição em prepared statement (`pool.execute`) e devolve
+    // "Incorrect arguments to mysqld_stmt_execute". São inteiros já saneados aqui, nunca
+    // texto do usuário — todo dado continua indo por placeholder.
+    const limit = Math.min(Math.max(Math.trunc(Number(req.query.limit)) || 50, 1), 100);
+    const page = Math.max(Math.trunc(Number(req.query.page)) || 1, 1);
+    const offset = (page - 1) * limit;
 
     const total = await queryOne(
       `SELECT COUNT(*) AS total FROM argos_install_order ${where}`,
       params,
     );
     const items = await query(
-      `SELECT * FROM argos_install_order ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, limit, (page - 1) * limit],
+      `SELECT * FROM argos_install_order ${where} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+      params,
     );
 
     res.json({ items, total: total?.total || 0, page, limit });
@@ -299,12 +304,18 @@ router.put('/orders/:id/items', loadOrder, async (req, res, next) => {
       return;
     }
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    // Sem isso, uma posição ausente chega ao driver como `undefined` e virava 500.
+    const invalid = items.filter((item) => !Number.isFinite(Number(item?.position)));
+    if (invalid.length) {
+      res.status(400).send('Cada item do checklist precisa de uma posição numérica');
+      return;
+    }
     for (const item of items) {
       await execute(
         `UPDATE argos_install_item
          SET result = ?, note = ?, answered_at = NOW(3)
          WHERE order_id = ? AND position = ?`,
-        [item.result || null, item.note || null, req.order.id, item.position],
+        [item.result || null, item.note || null, req.order.id, Number(item.position)],
       );
     }
     await execute('UPDATE argos_install_order SET updated_at = NOW(3) WHERE id = ?', [

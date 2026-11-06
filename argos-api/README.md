@@ -26,7 +26,15 @@ navegador ─► /api/...    Traccar oficial (inalterado)
   ~300 MB de RAM por render; o navegador do usuário gera o PDF pelo "Imprimir" com o mesmo
   layout (`@page A4`).
 - **Erros em texto puro**, porque o frontend usa `fetchOrThrow()`, que faz
-  `new Error(await response.text())` e mostra a mensagem no snackbar.
+  `new Error(await response.text())` e mostra a mensagem no snackbar. O handler final
+  traduz antes de responder: o limite do multer vira `413 Imagem acima do limite de 8 MB`
+  (e não um 500 com "File too large"), e erro de SQL vira uma mensagem genérica, com o
+  detalhe só no log — quem está em campo não precisa ver a mensagem do driver MySQL.
+- **O build verifica as dependências.** O `npm ci` do Dockerfile é seguido de um
+  `node -e` que carrega express, mysql2, multer, exif-reader e sharp. O motivo é concreto: o
+  npm 10 tem um modo de falha (`Exit handler never called!`) em que aborta a instalação no
+  meio e **sai com código 0** — a imagem subia sem o express e entrava em crash-loop no
+  deploy, com o build marcado como bem-sucedido. Agora quebra no build, que é onde deve.
 
 ## Variáveis de ambiente
 
@@ -35,9 +43,9 @@ navegador ─► /api/...    Traccar oficial (inalterado)
 | `PORT` | não | `8090` |
 | `ARGOS_BASE_PATH` | não | `/argos` |
 | `TRACCAR_URL` | **sim** (na prática) | `http://rastreamento_traccar:8082` — rede interna, não o domínio público |
-| `DB_HOST` | **sim** | `rastreamento_traccar_user` (o mesmo host do `traccar.xml`) |
+| `DB_HOST` | **sim** | `rastreamento_traccar_user` (o mesmo host do MySQL do Traccar) |
 | `DB_PORT` | não | `3306` |
-| `DB_NAME` | **sim** | `traccar` |
+| `DB_NAME` | **sim** | `argos` (banco separado — veja abaixo) |
 | `DB_USER` | **sim** | `argos` |
 | `DB_PASSWORD` | **sim** | *(secret)* |
 | `DB_POOL_LIMIT` | não | `8` |
@@ -48,30 +56,75 @@ navegador ─► /api/...    Traccar oficial (inalterado)
 | `ALLOWED_ORIGINS` | recomendada | `https://seu-dominio` (vazio = não verifica, só para dev) |
 | `RUN_MIGRATIONS` | não | `true` |
 
-### Usuário de banco recomendado
+### Banco e usuário
 
-Criar um usuário dedicado impede que um bug aqui escreva em tabela do Traccar:
+As tabelas do argos-api ficam num **banco separado** (`argos`), não junto das `tc_*` do
+Traccar. O serviço não precisa de nenhum acesso às tabelas do Traccar — identidade e
+visibilidade de dispositivo são resolvidas pela API HTTP dele, nunca por SQL — então não
+recebe esse acesso. Um bug aqui não alcança os dados do Traccar.
 
 ```sql
+CREATE DATABASE IF NOT EXISTS argos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'argos'@'%' IDENTIFIED BY '<senha>';
-GRANT SELECT ON traccar.tc_devices TO 'argos'@'%';
-GRANT SELECT ON traccar.tc_users   TO 'argos'@'%';
-GRANT SELECT ON traccar.tc_groups  TO 'argos'@'%';
-GRANT ALL PRIVILEGES ON `traccar`.`argos\_%` TO 'argos'@'%';
+GRANT ALL PRIVILEGES ON argos.* TO 'argos'@'%';
 FLUSH PRIVILEGES;
 ```
 
+Depois, `DB_NAME=argos` nas variáveis do serviço. O `docker compose` da raiz faz isso
+automaticamente em `deploy/mysql-init.sh`.
+
+> **Não tente restringir por prefixo de tabela.** Uma versão anterior deste documento
+> sugeria `GRANT ALL PRIVILEGES ON traccar.`argos\_%``. Isso **não funciona**: o MySQL aceita
+> curinga apenas no nome do *banco*, nunca no da tabela — o grant é gravado para uma tabela
+> literalmente chamada `argos\_%` e o serviço não consegue nem criar o próprio schema
+> (`CREATE command denied`). Banco separado é a forma que funciona.
+
+### Nome e marca da interface (white-label)
+
+A aba do navegador e o nome no PWA vêm de `server.attributes`, lidos pelo Traccar ao servir
+o `index.html` e o `manifest.webmanifest` — não do código do frontend. Em
+**Configurações → Servidor**, nos atributos, defina:
+
+| Atributo | Efeito |
+|---|---|
+| `title` | Título da aba e `short_name` do PWA (padrão: `Traccar`) |
+| `description` | `name` do PWA, usado no convite de instalação |
+| `colorPrimary` | Cor do tema no manifest |
+| `customHead` | HTML extra no `<head>` (ex.: script de analytics) |
+
+Sem isso, o cliente instala um aplicativo chamado "Traccar" — detalhe que passa fácil e
+destrói a percepção de produto próprio.
+
 ## Deploy no EasyPanel
 
-1. **Novo serviço** `argos-api` apontando para este diretório (`argos-api/Dockerfile`).
-2. **Volume** montado em `/data`.
-3. **Variáveis** da tabela acima (o `DB_HOST` é o host interno do MySQL, igual ao `traccar.xml`).
-4. **Proxy no mesmo domínio** (preferido): no serviço público, adicionar uma entrada de domínio
+**A ordem importa.** Faça o proxy antes de publicar o frontend novo: enquanto a regra `/argos`
+não existir, a requisição cai no servidor web do Traccar e volta HTML. O app detecta isso e
+mostra "módulo de instalação indisponível" em vez de um erro técnico, mas o módulo fica
+inutilizável até o proxy existir.
+
+1. **Banco**: crie o banco `argos` e o usuário dele (SQL na seção acima), no MySQL que o
+   Traccar já usa.
+2. **Novo serviço** `argos-api` apontando para este diretório (`argos-api/Dockerfile`).
+3. **Volume** montado em `/data`. É aqui que ficam as fotos — **e é o que precisa de backup**:
+   o laudo é prova de entrega do serviço e não pode ser recriado. O EasyPanel não versiona
+   volumes.
+4. **Variáveis** da tabela acima (`DB_HOST` é o host interno do MySQL; `DB_NAME=argos`).
+5. **Proxy no mesmo domínio** (preferido): no serviço público, adicionar uma entrada de domínio
    com path `/argos` apontando para `argos-api:8090`. Isso mantém a requisição *same-origin*,
    o cookie de sessão do Traccar viaja sozinho e não há CORS.
    No proxy, garantir: `client_max_body_size` ≥ 12 MB (senão o upload de 8 MB morre em 413 antes
    de chegar aqui), `proxy_request_buffering off` e timeout de leitura ≥ 60 s.
-5. **Sonda**: `GET /argos/health` (público) retorna 200 só com banco e volume OK.
+   O arquivo [`deploy/nginx.conf`](../deploy/nginx.conf) é esse mesmo roteamento, pronto, caso
+   você precise colocar um proxy próprio na frente.
+6. **Confira a sonda**: `GET /argos/health` (público) retorna 200 só com banco e volume OK.
+   Se vier 503, o corpo diz qual dos dois falhou.
+7. **Só então** faça o redeploy do serviço do frontend/Traccar.
+8. **Valide**: a bateria em [`test/`](test/README.md) exercita o fluxo inteiro (61 verificações,
+   incluindo upload de foto e permissões) e pode ser apontada para o ambiente publicado.
+
+Para ver a topologia inteira de pé numa máquina antes de publicar, há um
+[`docker-compose.yml`](../docker-compose.yml) na raiz com as quatro peças e o proxy já
+resolvido — foi com ele que este serviço foi validado.
 
 Se a versão do EasyPanel não rotear por path entre serviços, as alternativas são um Caddy na
 frente (`handle /argos* → argos-api:8090`, `handle → traccar:8082`) ou um host separado
@@ -84,7 +137,7 @@ padrão, então é obrigatório usar token: o frontend busca `GET /api/session/t
 ```bash
 cd argos-api
 npm install
-DB_HOST=127.0.0.1 DB_NAME=traccar DB_USER=root DB_PASSWORD=root \
+DB_HOST=127.0.0.1 DB_NAME=argos DB_USER=root DB_PASSWORD=root \
   TRACCAR_URL=https://seu-traccar STORAGE_DIR=/tmp/argos npm start
 ```
 

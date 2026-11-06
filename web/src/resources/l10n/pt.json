@@ -683,6 +683,8 @@
     "installTitle": "Instalação",
     "installHint": "Registe o rastreador, preencha o checklist e anexe as fotos da instalação.",
     "installOrders": "Ordens de instalação",
+    "installServiceUnavailable": "Módulo de instalação indisponível",
+    "installServiceUnavailableHint": "O serviço argos-api não está a responder em /argos. Verifique se o serviço está a correr e se existe a regra de proxy /argos neste domínio (ver argos-api/README.md).",
     "installOrderCode": "Ordem",
     "installOrderClosed": "Esta ordem está fechada e já não pode ser alterada.",
     "installStepIdentification": "Rastreador",

@@ -16,10 +16,11 @@ import { makeStyles } from 'tss-react/mui';
 import ViewLayout from '../common/components/ViewLayout';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useEffectAsync } from '../reactHelper';
-import argosFetch from '../common/util/argosApi';
+import argosFetch, { isUnavailable } from '../common/util/argosApi';
 import TableShimmer from '../common/components/TableShimmer';
 import { formatTime } from '../common/util/formatter';
 import OrderStatusChip from './components/OrderStatusChip';
+import ServiceUnavailable from './components/ServiceUnavailable';
 import useAccess from '../common/util/useAccess';
 
 const useStyles = makeStyles()((theme) => ({
@@ -56,12 +57,21 @@ const InstallOrdersPage = () => {
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffectAsync(async () => {
     setLoading(true);
     try {
       const result = await argosFetch('orders?limit=100');
       setItems(result.items || []);
+      setUnavailable(false);
+    } catch (error) {
+      // Serviço fora do ar / proxy ausente: explica na própria tela em vez de deixar o
+      // snackbar mostrar um erro técnico sem saída.
+      if (!isUnavailable(error)) {
+        throw error;
+      }
+      setUnavailable(true);
     } finally {
       setLoading(false);
     }
@@ -77,6 +87,8 @@ const InstallOrdersPage = () => {
             {t('installHint')}
           </Typography>
         </Paper>
+
+        {unavailable && <ServiceUnavailable />}
 
         <Table>
           <TableHead>

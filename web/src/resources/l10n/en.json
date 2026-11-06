@@ -683,6 +683,8 @@
     "installTitle": "Installation",
     "installHint": "Register the tracker, fill in the checklist and attach the installation photos.",
     "installOrders": "Installation orders",
+    "installServiceUnavailable": "Installation module unavailable",
+    "installServiceUnavailableHint": "The argos-api service is not responding at /argos. Check that the service is running and that the /argos proxy rule exists on this domain (see argos-api/README.md).",
     "installOrderCode": "Order",
     "installOrderClosed": "This order is closed and can no longer be changed.",
     "installStepIdentification": "Tracker",

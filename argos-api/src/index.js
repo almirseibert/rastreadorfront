@@ -53,14 +53,37 @@ api.use(reportRouter);
 
 app.use(config.basePath, api);
 
+// Traduz o erro técnico para algo que faça sentido no snackbar do instalador, em campo.
+// Sem isso, o limite do multer virava 500 ("File too large") e um erro de SQL expunha a
+// mensagem do driver MySQL para o usuário final.
+const describe = (error) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    const mb = Math.round(config.maxUploadBytes / 1048576);
+    return { status: 413, message: `Imagem acima do limite de ${mb} MB` };
+  }
+  if (error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE') {
+    return { status: 400, message: 'Envie uma imagem por vez' };
+  }
+  if (error.name === 'MulterError') {
+    return { status: 400, message: 'Falha ao receber o arquivo' };
+  }
+  // Erro vindo do MySQL: registra o detalhe no log e devolve algo genérico.
+  if (error.sqlState || String(error.code || '').startsWith('ER_')) {
+    return { status: 500, message: 'Falha ao acessar o banco de dados' };
+  }
+  return { status: error.status || 500, message: error.message || 'Erro interno' };
+};
+
 // Handler final: mensagem em texto puro, que é o que o fetchOrThrow do frontend exibe.
 app.use((error, req, res, next) => {
-  console.error('[argos-api]', error.message);
+  const { status, message } = describe(error);
+  // O log guarda o detalhe completo; a resposta, só o que ajuda quem está instalando.
+  console.error('[argos-api]', req.method, req.originalUrl, status, error.stack || error.message);
   if (res.headersSent) {
     next(error);
     return;
   }
-  res.status(error.status || 500).send(error.message || 'Erro interno');
+  res.status(status).send(message);
 });
 
 const start = async () => {

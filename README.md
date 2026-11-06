@@ -10,11 +10,29 @@ MapLibre GL) rodando sobre o backend **Traccar** padrão com MySQL, implantado n
 
 ```
 .
-├── Dockerfile      # build multi-stage: compila o web/ e injeta no traccar/traccar:latest
-├── traccar.xml     # config do backend (SEM segredos — senha via variável de ambiente)
-├── argos-api/      # serviço de ordens de instalação (checklist + fotos) — ver argos-api/README.md
-└── web/            # frontend React (fork traccar-web)
+├── Dockerfile          # build multi-stage: compila o web/ e injeta no traccar/traccar:latest
+├── traccar.xml         # config do backend (SEM segredos — senha via variável de ambiente)
+├── docker-compose.yml  # topologia de referência (Traccar + MySQL + argos-api + proxy)
+├── deploy/             # nginx.conf do proxy /argos e init do banco do argos-api
+├── argos-api/          # serviço de ordens de instalação (checklist + fotos)
+└── web/                # frontend React (fork traccar-web)
 ```
+
+## Subir a pilha inteira localmente
+
+O EasyPanel não usa o `docker-compose.yml` — ele existe para documentar de forma executável
+como as peças se encaixam (inclusive a regra de proxy `/argos`, onde o deploy costuma falhar)
+e para testar antes de publicar:
+
+```bash
+cp .env.example .env     # troque as senhas
+docker compose up -d --build
+```
+
+A interface fica em `http://localhost:8080` e o serviço de instalação em
+`http://localhost:8080/argos/health`. Para validar o módulo do instalador de ponta a ponta,
+veja [`argos-api/test/README.md`](argos-api/test/README.md) (61 verificações contra Traccar e
+MySQL reais).
 
 ## Perfis de acesso (tipos de usuário)
 
@@ -40,9 +58,20 @@ aprovar/reprovar e laudo imprimível.
 
 As fotos e os checklists ficam no serviço `argos-api` (e não no Traccar, que só aceita uma
 imagem de 500 KB por dispositivo). Para colocá-lo no ar, siga
-[`argos-api/README.md`](argos-api/README.md) — resumidamente: um serviço novo no EasyPanel a
-partir de `argos-api/Dockerfile`, um volume em `/data` e uma regra de proxy `/argos` no mesmo
-domínio do app.
+[`argos-api/README.md`](argos-api/README.md) — resumidamente: o banco `argos`, um serviço novo
+no EasyPanel a partir de `argos-api/Dockerfile`, um volume em `/data` e uma regra de proxy
+`/argos` no mesmo domínio do app, **criada antes** do redeploy do frontend. Enquanto o proxy
+não existir, o módulo mostra "indisponível" em vez de um erro técnico, mas não funciona.
+
+O volume das fotos é o único dado que não se recria: o laudo é prova de entrega do serviço, e
+o EasyPanel não versiona volumes. Mantenha backup.
+
+## Marca (white-label)
+
+O título da aba, o nome do app no celular (PWA) e a cor do tema vêm de `server.attributes`,
+lidos pelo Traccar ao servir a página — não do código. Em **Configurações → Servidor**,
+atributos: `title`, `description`, `colorPrimary`, `customHead` e `logo`. Sem definir `title`,
+o cliente instala um aplicativo chamado "Traccar".
 
 ## Desenvolvimento local
 

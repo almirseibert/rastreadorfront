@@ -19,10 +19,11 @@ import PageLayout from '../common/components/PageLayout';
 import SettingsMenu from '../settings/components/SettingsMenu';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useEffectAsync } from '../reactHelper';
-import argosFetch from '../common/util/argosApi';
+import argosFetch, { isUnavailable } from '../common/util/argosApi';
 import TableShimmer from '../common/components/TableShimmer';
 import { formatTime } from '../common/util/formatter';
 import OrderStatusChip from './components/OrderStatusChip';
+import ServiceUnavailable from './components/ServiceUnavailable';
 import { STATUS } from './util/orderStatus';
 import { statusLabelKey } from './util/orderStatus';
 
@@ -55,6 +56,7 @@ const InstallationsPage = () => {
   const [keyword, setKeyword] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffectAsync(async () => {
     setLoading(true);
@@ -71,6 +73,12 @@ const InstallationsPage = () => {
       }
       const result = await argosFetch(`orders?${params.toString()}`);
       setItems(result.items || []);
+      setUnavailable(false);
+    } catch (error) {
+      if (!isUnavailable(error)) {
+        throw error;
+      }
+      setUnavailable(true);
     } finally {
       setLoading(false);
     }
@@ -118,6 +126,8 @@ const InstallationsPage = () => {
           onChange={(e) => setKeyword(e.target.value)}
         />
       </div>
+
+      {unavailable && <ServiceUnavailable />}
 
       <Table>
         <TableHead>

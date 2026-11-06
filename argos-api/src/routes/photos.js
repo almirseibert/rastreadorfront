@@ -60,7 +60,8 @@ router.post('/orders/:id/photos', loadOrder, upload.single('file'), async (req, 
       originalName: req.file.originalname,
     });
 
-    const takenAt = req.body?.takenAt ? new Date(req.body.takenAt) : null;
+    // Data: o que o celular informou, senão o DateTimeOriginal do próprio EXIF.
+    const takenAt = req.body?.takenAt ? new Date(req.body.takenAt) : processed.exifTakenAt;
     const result = await execute(
       `INSERT INTO argos_install_photo
          (order_id, slot, position, client_photo_id, path, thumb_path, mime, bytes, width, height,

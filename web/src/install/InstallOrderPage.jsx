@@ -21,13 +21,14 @@ import { makeStyles } from 'tss-react/mui';
 import { useDispatch } from 'react-redux';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useCatch, useCatchCallback, useEffectAsync } from '../reactHelper';
-import argosFetch, { argosUpload } from '../common/util/argosApi';
+import argosFetch, { argosUpload, isUnavailable } from '../common/util/argosApi';
 import usePersistedState from '../common/util/usePersistedState';
 import { errorsActions } from '../store';
 import compressImage from './util/compressImage';
 import PHOTO_SLOTS from './util/photoSlots';
 import { STATUS, isOpen } from './util/orderStatus';
 import OrderStatusChip from './components/OrderStatusChip';
+import ServiceUnavailable from './components/ServiceUnavailable';
 import PhotoSlot from './components/PhotoSlot';
 import ChecklistItemField from './components/ChecklistItemField';
 import StepDevice from './steps/StepDevice';
@@ -110,6 +111,7 @@ const InstallOrderPage = () => {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState([]);
+  const [unavailable, setUnavailable] = useState(false);
 
   const apply = (detail) => {
     setOrder(detail);
@@ -117,7 +119,7 @@ const InstallOrderPage = () => {
     setPhotos(detail.photos || []);
   };
 
-  useEffectAsync(async () => {
+  const load = async () => {
     if (id) {
       apply(await argosFetch(`orders/${id}`));
     } else {
@@ -133,6 +135,18 @@ const InstallOrderPage = () => {
       });
       setDraftId('');
       navigate(`/install/order/${created.id}`, { replace: true });
+    }
+  };
+
+  useEffectAsync(async () => {
+    try {
+      await load();
+    } catch (error) {
+      // O instalador está em campo: precisa ler "serviço indisponível", não um HTTP cru.
+      if (!isUnavailable(error)) {
+        throw error;
+      }
+      setUnavailable(true);
     }
     return null;
   }, [id]);
@@ -268,6 +282,10 @@ const InstallOrderPage = () => {
       setStep(4);
     }
   }, [order, editable, step]);
+
+  if (unavailable) {
+    return <ServiceUnavailable />;
+  }
 
   if (!order) {
     return <LinearProgress />;
